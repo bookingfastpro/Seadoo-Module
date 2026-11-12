@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
 
   return Response.json({
     start_inhibit: dev.start_inhibit,
+    speed_limit: dev.speed_limit,
     active_interval_s: dev.active_interval_s,
     parked_interval_s: dev.parked_interval_s,
     collision_radius_m: dev.collision_radius_m,

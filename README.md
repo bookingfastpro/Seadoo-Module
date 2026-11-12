@@ -25,7 +25,8 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 | Anti-démarrage à distance | prêt côté logiciel, câblage à faire (étape 5) |
 | **Anti-collision** entre nos modules (buzzer, seuil réglable) | logique vérifiée, radio à tester sur l'eau (docs/05) |
 | Mode journal anti-collision (mesure de fiabilité, aucune action) | prêt (docs/05) |
-| Limitation des gaz (engins SANS pilote, télécommandés) | prêt, désactivée par défaut (docs/07) |
+| Bridage de vitesse par l'ECM (façon OtoTrak, via diag) | cadre prêt ; commande à capturer avec BUDS2 (docs/08) |
+| Limitation des gaz par servo (engins SANS pilote) | alternative, désactivée par défaut (docs/07) |
 | Bridage de vitesse pour un pilote à bord | volontairement absent — dangereux (docs/04, docs/07) |
 
 ## Contenu du dépôt

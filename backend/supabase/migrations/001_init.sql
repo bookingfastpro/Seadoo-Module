@@ -8,6 +8,7 @@ create table public.devices (
   name              text not null,
   key_hash          text not null,                 -- sha256 hex de DEVICE_KEY
   start_inhibit     boolean not null default false,-- consigne anti-demarrage
+  speed_limit       boolean not null default false,-- bridage de vitesse via l'ECM (facon OtoTrak)
   active_interval_s integer not null default 30,
   parked_interval_s integer not null default 1800,
   collision_radius_m integer not null default 100,  -- rayon de securite anti-collision (par jet-ski)
@@ -69,11 +70,11 @@ create policy "lecture alerts"    on public.alerts    for select to authenticate
 -- (un retrait par colonne est sans effet tant que le droit existe sur la table :
 --  on retire le droit global puis on redonne colonne par colonne)
 revoke all on public.devices from authenticated, anon;
-grant select (id, name, start_inhibit, active_interval_s, parked_interval_s,
+grant select (id, name, start_inhibit, speed_limit, active_interval_s, parked_interval_s,
               collision_radius_m, geofence_lat, geofence_lon, geofence_radius_m,
               last_seen, last_lat, last_lon, last_can_alive, inhibit_active, outside_geofence)
   on public.devices to authenticated;
-grant update (name, start_inhibit, active_interval_s, parked_interval_s,
+grant update (name, start_inhibit, speed_limit, active_interval_s, parked_interval_s,
               collision_radius_m, geofence_lat, geofence_lon, geofence_radius_m)
   on public.devices to authenticated;
 

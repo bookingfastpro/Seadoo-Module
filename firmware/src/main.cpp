@@ -26,6 +26,7 @@
 #include "can_signals.h"
 #include "collision.h"
 #include "throttle.h"
+#include "diag_commands.h"
 
 #if COLLISION_ENABLE
 #include <WiFi.h>
@@ -64,8 +65,15 @@ static uint32_t parkedIntervalS = PARKED_INTERVAL_S;
 
 // ---------- CAN ----------
 static bool canStart() {
+  // Ecoute seule par defaut (ne peut rien perturber). Mode normal uniquement si
+  // le bridage par diagnostic est actif, car il faut alors emettre vers l'ECM.
+#if DIAG_LIMIT_ENABLE
+  twai_mode_t canMode = TWAI_MODE_NORMAL;
+#else
+  twai_mode_t canMode = TWAI_MODE_LISTEN_ONLY;
+#endif
   twai_general_config_t g = TWAI_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN,
-                                                        TWAI_MODE_LISTEN_ONLY);
+                                                        canMode);
   g.rx_queue_len = 128;
 #if CAN_BITRATE_KBPS == 250
   twai_timing_config_t t = TWAI_TIMING_CONFIG_250KBITS();
@@ -525,10 +533,48 @@ static float readBatteryVolts() {
 #endif
 }
 
+#if DIAG_LIMIT_ENABLE
+static bool speedLimitWanted = false;
+static bool speedLimitActive = false;
+
+// Emet une sequence de trames de diagnostic vers l'ECM (uniquement les trames
+// capturees et placees dans diag_commands.h ; vide = n'emet rien).
+static void sendDiagSequence(const DiagFrame *seq, size_t n) {
+  for (size_t i = 0; i < n; i++) {
+    twai_message_t m = {};
+    m.identifier = seq[i].id;
+    m.extd = seq[i].id > 0x7FF ? 1 : 0;
+    m.data_length_code = seq[i].dlc;
+    for (int b = 0; b < seq[i].dlc && b < 8; b++) m.data[b] = seq[i].data[b];
+    twai_transmit(&m, pdMS_TO_TICKS(50));
+    if (seq[i].gap_ms) delay(seq[i].gap_ms);
+  }
+}
+
+static void applySpeedLimit(bool on) {
+  if (on == speedLimitActive) return;
+  if (on && DIAG_LIMIT_ON_COUNT) {
+    sendDiagSequence(DIAG_LIMIT_ON, DIAG_LIMIT_ON_COUNT);
+    speedLimitActive = true;
+    Serial.println("Bridage ECM : ACTIVE");
+  } else if (!on && DIAG_LIMIT_OFF_COUNT) {
+    sendDiagSequence(DIAG_LIMIT_OFF, DIAG_LIMIT_OFF_COUNT);
+    speedLimitActive = false;
+    Serial.println("Bridage ECM : retire");
+  }
+}
+#endif
+
 static void handleServerResponse(const String &response) {
   JsonDocument doc;
   if (response.isEmpty() || deserializeJson(doc, response)) return;
   if (doc["start_inhibit"].is<bool>()) inhibitWanted = doc["start_inhibit"].as<bool>();
+#if DIAG_LIMIT_ENABLE
+  if (doc["speed_limit"].is<bool>()) {
+    speedLimitWanted = doc["speed_limit"].as<bool>();
+    applySpeedLimit(speedLimitWanted);
+  }
+#endif
 #if COLLISION_ENABLE
   float cr = doc["collision_radius_m"] | 0.0f;
   if (cr >= 10 && cr <= 1000) collisionRadius = cr;

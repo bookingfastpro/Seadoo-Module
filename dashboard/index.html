@@ -89,7 +89,7 @@ function ago(ts) {
 
 async function refresh() {
   const { data, error } = await db.from('devices')
-    .select('id,name,start_inhibit,inhibit_active,last_seen,last_lat,last_lon,last_can_alive,outside_geofence,geofence_lat,geofence_lon,geofence_radius_m,collision_radius_m')
+    .select('id,name,start_inhibit,speed_limit,inhibit_active,last_seen,last_lat,last_lon,last_can_alive,outside_geofence,geofence_lat,geofence_lon,geofence_radius_m,collision_radius_m')
     .order('name');
   if (error) { $('devices').innerHTML = `<p class="err">${esc(error.message)}</p>`; return; }
   devices = data;
@@ -122,6 +122,7 @@ async function refresh() {
         <button data-act="inhibit" class="${d.start_inhibit ? 'ghost' : 'danger'}">${d.start_inhibit ? 'Autoriser le démarrage' : 'Bloquer le démarrage'}</button>
         <button data-act="zone" class="ghost">${d.geofence_radius_m ? 'Retirer la zone' : 'Zone ici'}</button>
         <button data-act="collide" class="ghost">Rayon anti-collision : ${d.collision_radius_m} m</button>
+        <button data-act="limit" class="${d.speed_limit ? 'danger' : 'ghost'}">${d.speed_limit ? 'Retirer le bridage' : 'Brider la vitesse'}</button>
       </div>
       <div class="muted" style="margin-top:6px">Démarrage : ${d.inhibit_active ? 'bloqué' : 'autorisé'}${pending ? ' (changement en attente du prochain contact)' : ''}</div>`;
     el.onclick = (e) => onCard(d, e.target.dataset.act);
@@ -169,6 +170,9 @@ async function onCard(d, act) {
       if (!r || r < 50) return;
       await db.from('devices').update({ geofence_lat: d.last_lat, geofence_lon: d.last_lon, geofence_radius_m: Math.round(r) }).eq('id', d.id);
     }
+  } else if (act === 'limit') {
+    if (!d.speed_limit && !confirm(`Brider la vitesse de ${d.name} ?\nEngin sans pilote uniquement.`)) return;
+    await db.from('devices').update({ speed_limit: !d.speed_limit }).eq('id', d.id);
   } else if (act === 'collide') {
     const v = Number(prompt('Rayon de sécurité de ce jet-ski (mètres), entre 10 et 1000 :\nL\'alerte se déclenche quand deux rayons se touchent.', d.collision_radius_m));
     if (!v || v < 10 || v > 1000) return;
@@ -208,7 +212,7 @@ function initMqtt() {
 // Pousse la consigne au boîtier via MQTT (message retenu) pour une prise en compte immédiate.
 async function publishCmd(id) {
   if (!mqttClient || !mqttClient.connected) return;
-  const r = await db.from('devices').select('start_inhibit,active_interval_s,parked_interval_s,collision_radius_m').eq('id', id).maybeSingle();
+  const r = await db.from('devices').select('start_inhibit,speed_limit,active_interval_s,parked_interval_s,collision_radius_m').eq('id', id).maybeSingle();
   if (r.data) mqttClient.publish('seadoo/' + id + '/cmd', JSON.stringify(r.data), { retain: true, qos: 1 });
 }
 

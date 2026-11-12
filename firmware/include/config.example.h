@@ -13,6 +13,14 @@
 // URL de la fonction Supabase "ingest" (utilisee seulement en mode HTTPS ci-dessous)
 #define INGEST_URL  "https://VOTRE-PROJET.supabase.co/functions/v1/ingest"
 
+// ---------- Bridage par le calculateur (facon OtoTrak), via la prise diag ----------
+// Active la limitation de vitesse INTEGREE a l'ECM en lui envoyant la commande de
+// diagnostic capturee avec BUDS2 (voir docs/08-bridage-diag.md). Cela demande
+// d'EMETTRE sur le bus : le CAN passe en mode normal (au lieu d'ecoute seule).
+// Laisse a 0 tant que les trames de diag_commands.h ne sont pas capturees et
+// testees au banc. Meme a 1, rien n'est emis si ces sequences sont vides.
+#define DIAG_LIMIT_ENABLE 0
+
 // ---------- Transport vers le serveur ----------
 // 0 = HTTPS : un envoi a la fois, simple, ~30 s entre points. Bon pour debuter.
 // 1 = MQTT  : liaison gardee ouverte, un point par seconde, quasi temps reel.
