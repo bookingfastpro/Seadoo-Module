@@ -40,7 +40,7 @@
 // Les modules se parlent DIRECTEMENT (sans internet) et calculent le risque
 // localement : reaction en millisecondes, meme sans reseau. Voir docs/05.
 #define COLLISION_ENABLE     1
-#define COLLISION_DISTANCE_M 120     // seuil d'alerte par defaut (reglable depuis le tableau de bord)
+#define COLLISION_DISTANCE_M 250     // seuil d'alerte par defaut (reglable depuis le tableau de bord)
 #define COLLISION_TX_HZ      4       // diffusions de sa position par seconde
 #define PEER_STALE_MS        3000    // au-dela, un module silencieux est ignore
 #define BUZZER_PIN           19      // GPIO d'un buzzer actif (-1 = pas de buzzer). A confirmer sur la carte.

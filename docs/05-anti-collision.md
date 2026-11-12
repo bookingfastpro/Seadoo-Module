@@ -20,7 +20,7 @@ même sans réseau mobile.
 
 L'alarme ne sonne que si **deux conditions** sont réunies :
 
-1. distance < seuil (par défaut **120 m**, réglable depuis le tableau de bord), **et**
+1. distance < seuil (par défaut **250 m**, réglable depuis le tableau de bord), **et**
 2. les deux jet-skis se **rapprochent** vraiment (trajectoires qui convergent).
 
 Donc rouler côte à côte à distance constante **ne sonne pas**. Le calcul (point
