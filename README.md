@@ -18,7 +18,7 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 
 | Fonction | État |
 |---|---|
-| Position GPS en direct + trace des dernières 24 h | prêt |
+| Position GPS en direct (~1 s en MQTT) + trace des dernières 24 h | prêt |
 | Zone autorisée (geofence) avec alerte à la sortie | prêt |
 | Jet-ski allumé / éteint, réseau, tension batterie | prêt |
 | Régime, vitesse, carburant, heures moteur | **à décoder** sur le bus CAN (étape 2) |
@@ -44,6 +44,8 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 3. **Mettre le serveur en route** — [docs/03-backend.md](docs/03-backend.md)
 4. **Passer le boîtier en mode suivi**, le monter dans un boîtier étanche
 5. **Anti-démarrage** (optionnel) — [docs/04-securite.md](docs/04-securite.md)
+6. **Anti-collision** entre modules — [docs/05-anti-collision.md](docs/05-anti-collision.md)
+7. **Temps réel (1 s) par MQTT** — [docs/06-mqtt.md](docs/06-mqtt.md)
 
 ## État de vérification
 

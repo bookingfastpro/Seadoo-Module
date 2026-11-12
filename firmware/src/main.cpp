@@ -37,6 +37,17 @@
 TinyGsm modem(SerialAT);
 Preferences prefs;
 
+#if TRANSPORT_MQTT
+#include <PubSubClient.h>
+#if MQTT_USE_TLS
+TinyGsmClientSecure netClient(modem);   // TLS fait par le modem
+#else
+TinyGsmClient netClient(modem);
+#endif
+PubSubClient mqtt(netClient);
+static char telTopic[48], cmdTopic[48];
+#endif
+
 // ---------- Etat ----------
 static float signalValue[CAN_SIGNAL_COUNT];
 static uint32_t signalSeenMs[CAN_SIGNAL_COUNT];   // 0 = jamais recu
@@ -420,11 +431,11 @@ static void handleServerResponse(const String &response) {
   applyInhibit();
 }
 
-// Envoie un point au serveur. waitFix : attendre un fix GNSS (reveil a froid).
-static bool sendReport(bool waitFix) {
-  if (!modemConnect()) return false;
-
-  float lat = 0, lon = 0, speed = 0, alt = 0, acc = 0;
+// Acquiert un fix GNSS (waitFix : attendre, au reveil a froid) et met a jour
+// l'etat anti-collision. Renvoie true si position valide.
+static bool acquireFix(bool waitFix, float &lat, float &lon, float &speed, float &acc) {
+  lat = lon = speed = acc = 0;
+  float alt = 0;
   int vsat = 0, usat = 0;
   bool fix = false;
   uint32_t t0 = millis();
@@ -436,11 +447,14 @@ static bool sendReport(bool waitFix) {
       delay(100);
     }
   } while (millis() - t0 < (uint32_t)GPS_FIX_TIMEOUT_S * 1000UL);
-
 #if COLLISION_ENABLE
   if (fix) collisionSetOwn(lat, lon, speed / 3.6f);  // speed en km/h -> m/s
 #endif
+  return fix;
+}
 
+// Construit le JSON d'un point (identique pour HTTPS et MQTT).
+static void buildReportBody(String &body, bool fix, float lat, float lon, float speed, float acc) {
   JsonDocument doc;
   doc["device_id"] = DEVICE_ID;
   doc["key"] = DEVICE_KEY;
@@ -460,18 +474,75 @@ static bool sendReport(bool waitFix) {
     float v;
     if (CAN_SIGNALS[i].id != 0 && signalFresh(i, v)) doc[CAN_SIGNALS[i].name] = v;
   }
-
-  String body, response;
   serializeJson(doc, body);
+}
+
+#if TRANSPORT_MQTT
+// Consigne recue du serveur/tableau de bord (meme format que la reponse HTTP).
+static void mqttCallback(char *, byte *payload, unsigned int len) {
+  String s;
+  s.reserve(len);
+  for (unsigned i = 0; i < len; i++) s += (char)payload[i];
+  handleServerResponse(s);
+}
+
+static bool mqttEnsure() {
+  if (!modemConnect()) return false;
+  if (mqtt.connected()) return true;
+  snprintf(telTopic, sizeof(telTopic), "seadoo/%s/telemetry", DEVICE_ID);
+  snprintf(cmdTopic, sizeof(cmdTopic), "seadoo/%s/cmd", DEVICE_ID);
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setBufferSize(1024);
+  mqtt.setKeepAlive(30);
+  mqtt.setCallback(mqttCallback);
+  String cid = String("seadoo-") + DEVICE_ID;
+  if (!mqtt.connect(cid.c_str(), MQTT_USER, MQTT_PASS)) {
+    Serial.printf("MQTT : echec connexion (etat %d)\n", mqtt.state());
+    return false;
+  }
+  mqtt.subscribe(cmdTopic, 1);   // recoit la derniere consigne (message retenu par le broker)
+  Serial.println("MQTT : connecte");
+  return true;
+}
+#endif
+
+// Envoie un point au serveur. waitFix : attendre un fix GNSS (reveil a froid).
+static bool sendReport(bool waitFix) {
+  if (!modemConnect()) return false;
+  float lat, lon, speed, acc;
+  bool fix = acquireFix(waitFix, lat, lon, speed, acc);
+  String body;
+  buildReportBody(body, fix, lat, lon, speed, acc);
+
+#if TRANSPORT_MQTT
+  if (!mqttEnsure()) return false;
+  bool ok = mqtt.publish(telTopic, body.c_str());
+  Serial.printf("Envoi MQTT : %s\n", ok ? "OK" : "ECHEC");
+  return ok;
+#else
+  String response;
   int status = 0;
   bool ok = httpsPost(body, response, status) && status == 200;
   Serial.printf("Envoi : %s (HTTP %d)\n", ok ? "OK" : "ECHEC", status);
   if (ok) handleServerResponse(response);
   return ok;
+#endif
+}
+
+// Intervalle entre points moteur tournant : ~1 s en MQTT, sinon le reglage serveur.
+static uint32_t activeIntervalMs() {
+#if TRANSPORT_MQTT
+  return MQTT_PUBLISH_MS;
+#else
+  return activeIntervalS * 1000UL;
+#endif
 }
 
 static void goToSleep() {
   Serial.printf("Sommeil pour %lu s\n", (unsigned long)parkedIntervalS);
+#if TRANSPORT_MQTT
+  if (mqtt.connected()) mqtt.disconnect();
+#endif
   if (modemReady) modem.poweroff();
 #if COLLISION_ENABLE
   esp_now_deinit();
@@ -535,6 +606,10 @@ void loop() {
   bool alive = canAlive();
   uint32_t now = millis();
 
+#if TRANSPORT_MQTT
+  if (modemReady && mqtt.connected()) mqtt.loop();   // traite les consignes entrantes
+#endif
+
 #if COLLISION_ENABLE
   if (alive) {
     static uint32_t lastGps = 0;
@@ -547,7 +622,7 @@ void loop() {
   }
 #endif
 
-  if (!reportedOnce || (alive && now - lastReportMs >= activeIntervalS * 1000UL)) {
+  if (!reportedOnce || (alive && now - lastReportMs >= activeIntervalMs())) {
     sendReport(!reportedOnce);                    // premier envoi : on attend le fix GNSS
     reportedOnce = true;
     lastReportMs = millis();

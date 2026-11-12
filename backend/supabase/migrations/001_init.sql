@@ -10,7 +10,7 @@ create table public.devices (
   start_inhibit     boolean not null default false,-- consigne anti-demarrage
   active_interval_s integer not null default 30,
   parked_interval_s integer not null default 1800,
-  collision_distance_m integer not null default 250,  -- seuil d'alerte anti-collision
+  collision_distance_m integer not null default 120,  -- seuil d'alerte anti-collision
   -- cloture virtuelle (optionnelle)
   geofence_lat      double precision,
   geofence_lon      double precision,

@@ -10,8 +10,20 @@
 #define APN         "iot.1nce.net"             // APN de votre carte SIM M2M
 #define APN_USER    ""
 #define APN_PASS    ""
-// URL de la fonction Supabase "ingest" (voir docs/03-backend.md)
+// URL de la fonction Supabase "ingest" (utilisee seulement en mode HTTPS ci-dessous)
 #define INGEST_URL  "https://VOTRE-PROJET.supabase.co/functions/v1/ingest"
+
+// ---------- Transport vers le serveur ----------
+// 0 = HTTPS : un envoi a la fois, simple, ~30 s entre points. Bon pour debuter.
+// 1 = MQTT  : liaison gardee ouverte, un point par seconde, quasi temps reel.
+//     Demande un broker MQTT (voir docs/06-mqtt.md). Recommande pour l'usage final.
+#define TRANSPORT_MQTT  1
+#define MQTT_HOST       "xxxxxxxx.s1.eu.hivemq.cloud"  // adresse de votre broker
+#define MQTT_PORT       8883                            // 8883 = TLS (conseille), 1883 = sans TLS
+#define MQTT_USE_TLS    1
+#define MQTT_USER       "seadoo"
+#define MQTT_PASS       "CHANGER-MOI"
+#define MQTT_PUBLISH_MS 1000                            // navigation : un point par seconde
 
 // ---------- Mode ----------
 // 1 = mode sniffer : enregistre toutes les trames CAN sur la carte SD + port serie,
@@ -40,7 +52,7 @@
 // Les modules se parlent DIRECTEMENT (sans internet) et calculent le risque
 // localement : reaction en millisecondes, meme sans reseau. Voir docs/05.
 #define COLLISION_ENABLE     1
-#define COLLISION_DISTANCE_M 250     // seuil d'alerte par defaut (reglable depuis le tableau de bord)
+#define COLLISION_DISTANCE_M 120     // seuil d'alerte par defaut (reglable depuis le tableau de bord)
 #define COLLISION_TX_HZ      4       // diffusions de sa position par seconde
 #define PEER_STALE_MS        3000    // au-dela, un module silencieux est ignore
 #define BUZZER_PIN           19      // GPIO d'un buzzer actif (-1 = pas de buzzer). A confirmer sur la carte.

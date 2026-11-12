@@ -58,6 +58,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.3/mqtt.min.js"></script>
 <script src="config.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -65,7 +66,7 @@ const cfg = window.SEADOO_CONFIG;
 if (!cfg) document.body.innerHTML = '<p style="padding:24px">Fichier <code>config.js</code> manquant : copier <code>config.example.js</code> et le remplir.</p>';
 const db = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-let map, markers = {}, track, zone, selected = null, devices = [];
+let map, markers = {}, track, zone, selected = null, devices = [], mqttClient = null;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const val = (v, unit, digits = 0) => v == null ? '—' : Number(v).toFixed(digits) + unit;
@@ -165,8 +166,39 @@ async function onCard(d, act) {
   } else {
     selected = d.id;
     map._moved = false;
+    refresh();
+    return;
   }
+  await publishCmd(d.id);   // le boîtier reçoit la consigne tout de suite
   refresh();
+}
+
+// Déplace un marqueur en direct dès qu'un point MQTT arrive (sans attendre le refresh).
+function liveUpdate(id, p) {
+  if (p.lat == null || p.lon == null) return;
+  const ll = [p.lat, p.lon];
+  if (!markers[id]) markers[id] = L.marker(ll).addTo(map).on('click', () => { selected = id; refresh(); });
+  markers[id].setLatLng(ll);
+  if (id === selected && track) track.addLatLng(ll);
+}
+
+function initMqtt() {
+  if (!cfg.mqttUrl || mqttClient) return;
+  try {
+    mqttClient = mqtt.connect(cfg.mqttUrl, { username: cfg.mqttUser, password: cfg.mqttPass, reconnectPeriod: 5000 });
+    mqttClient.on('connect', () => mqttClient.subscribe('seadoo/+/telemetry'));
+    mqttClient.on('message', (topic, payload) => {
+      const id = topic.split('/')[1];
+      try { liveUpdate(id, JSON.parse(payload.toString())); } catch (e) {}
+    });
+  } catch (e) { /* pas de temps réel : on garde le rafraîchissement Supabase */ }
+}
+
+// Pousse la consigne au boîtier via MQTT (message retenu) pour une prise en compte immédiate.
+async function publishCmd(id) {
+  if (!mqttClient || !mqttClient.connected) return;
+  const r = await db.from('devices').select('start_inhibit,active_interval_s,parked_interval_s,collision_distance_m').eq('id', id).maybeSingle();
+  if (r.data) mqttClient.publish('seadoo/' + id + '/cmd', JSON.stringify(r.data), { retain: true, qos: 1 });
 }
 
 function start() {
@@ -175,6 +207,7 @@ function start() {
     map = L.map('map').setView([46.6, 2.4], 5);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
     setInterval(refresh, 15000);
+    initMqtt();
   }
   refresh();
 }
