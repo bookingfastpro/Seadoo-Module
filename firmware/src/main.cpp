@@ -299,6 +299,9 @@ static void collisionTick() {
     lastBeaconMs = now;
   }
   buzzerUpdate(collisionWorst());
+#if COLLISION_LOG
+  collisionLogTick();
+#endif
 }
 
 // Met a jour son propre etat depuis un point GPS ; le cap est deduit du deplacement.
@@ -314,6 +317,47 @@ static void collisionSetOwn(double lat, double lon, float speed_mps) {
   ownState.speed_mps = speed_mps;
   ownState.valid = true;
 }
+
+#if COLLISION_LOG
+static bool collLogReady = false;
+static uint32_t lastLogMs = 0;
+
+static void collisionLogInit() {
+  SPI.begin(SD_SCLK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("Journal collision : pas de carte SD (sortie serie seule)");
+    return;
+  }
+  collLogReady = true;
+  if (!SD.exists("/collision_log.csv")) {
+    File f = SD.open("/collision_log.csv", FILE_WRITE);
+    if (f) { f.println("ms,peer,dist_m,range_rate_mps,tcpa_s,dcpa_m,level,would_act"); f.close(); }
+  }
+}
+
+// Journalise (~2 Hz) toute menace >= niveau 1, SANS jamais agir sur le jet-ski.
+// would_act = 1 marque les instants ou un systeme actif "aurait agi" : c'est ce
+// chiffre qu'on analyse apres coup pour juger des faux positifs.
+static void collisionLogTick() {
+  if (millis() - lastLogMs < 500) return;
+  lastLogMs = millis();
+  File f;
+  if (collLogReady) f = SD.open("/collision_log.csv", FILE_APPEND);
+  for (int i = 0; i < 8; i++) {
+    if (!peers[i].lastMs || millis() - peers[i].lastMs > PEER_STALE_MS) continue;
+    Threat t = assessThreat(ownState, peers[i].st, collisionThreshold);
+    if (t.level < 1) continue;
+    int wouldAct = (t.level >= COLLISION_ACTION_LEVEL) ? 1 : 0;
+    char line[128];
+    snprintf(line, sizeof(line), "%lu,%s,%.0f,%.1f,%.1f,%.0f,%d,%d", (unsigned long)millis(),
+             peers[i].id, t.distance_m, t.range_rate_mps, t.tcpa_s, t.dcpa_m, t.level, wouldAct);
+    Serial.print("JOURNAL ");
+    Serial.println(line);
+    if (f) f.println(line);
+  }
+  if (f) f.close();
+}
+#endif  // COLLISION_LOG
 #endif  // COLLISION_ENABLE
 
 // ---------- Modem ----------
@@ -589,6 +633,9 @@ void setup() {
 
 #if COLLISION_ENABLE
   collisionInit();
+#if COLLISION_LOG
+  collisionLogInit();
+#endif
 #endif
 
   // Laisse 3 s au bus pour se manifester avant de decider si le jet-ski est allume.

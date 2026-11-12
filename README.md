@@ -24,6 +24,7 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 | Régime, vitesse, carburant, heures moteur | **à décoder** sur le bus CAN (étape 2) |
 | Anti-démarrage à distance | prêt côté logiciel, câblage à faire (étape 5) |
 | **Anti-collision** entre nos modules (buzzer, seuil réglable) | logique vérifiée, radio à tester sur l'eau (docs/05) |
+| Mode journal anti-collision (mesure de fiabilité, aucune action) | prêt (docs/05) |
 | Bridage de vitesse à distance | volontairement absent (voir docs/04) |
 
 ## Contenu du dépôt
@@ -35,6 +36,7 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 | `dashboard/` | Tableau de bord web (carte, état, commandes) |
 | `tools/can_analyze.py` | Outil pour décoder le bus CAN |
 | `tools/collision_test.cpp` | Vérification du calcul anti-collision |
+| `tools/collision_log_analyze.py` | Analyse du journal anti-collision (fiabilité) |
 | `docs/` | Guides pas à pas |
 
 ## Feuille de route

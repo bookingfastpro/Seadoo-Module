@@ -56,6 +56,11 @@
 #define COLLISION_TX_HZ      4       // diffusions de sa position par seconde
 #define PEER_STALE_MS        3000    // au-dela, un module silencieux est ignore
 #define BUZZER_PIN           19      // GPIO d'un buzzer actif (-1 = pas de buzzer). A confirmer sur la carte.
+// Mode journal : l'algo evalue le risque et ECRIT ses decisions sur la carte SD
+// (/collision_log.csv), SANS JAMAIS agir sur le jet-ski. Sert a mesurer la
+// fiabilite (faux positifs) sur de vraies sorties avant d'envisager quoi que ce soit.
+#define COLLISION_LOG          1
+#define COLLISION_ACTION_LEVEL 2     // niveau a partir duquel il NOTE "aurait agi" (journal seulement)
 
 // ---------- Anti-demarrage (phase 3, optionnel) ----------
 // -1 = desactive. Sinon GPIO qui pilote le relais (contact NF en serie

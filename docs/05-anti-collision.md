@@ -72,6 +72,37 @@ déplacement ; un GPS rapide le donne directement et plus proprement.
 Buzzer **actif** 5 V (celui qui sonne seul sous tension), sur `GPIO 19` et la
 masse. Changer `BUZZER_PIN` dans `config.h` si besoin, ou `-1` pour le couper.
 
+## Mode journal (test de fiabilité, aucune action)
+
+Le système **n'agit jamais** sur le jet-ski : il reste un avertisseur. Le mode
+journal sert à **mesurer** la fiabilité de l'algorithme avant de lui faire
+confiance pour quoi que ce soit de plus.
+
+Activé par défaut (`COLLISION_LOG 1`). À chaque sortie, l'algo évalue le risque
+en continu et **écrit ses décisions** sur la carte SD dans
+`/collision_log.csv` (et sur le port série, lignes `JOURNAL …`), **sans rien
+changer au comportement du jet-ski**. La colonne `would_act` note les instants où
+un système actif « aurait agi » (niveau ≥ `COLLISION_ACTION_LEVEL`).
+
+Après tes sorties, analyse le fichier :
+
+```bash
+python3 tools/collision_log_analyze.py collision_log.csv
+```
+
+Il regroupe les notes en **épisodes** et montre, pour chacun : distance minimale,
+rapprochement maximal, niveau atteint, et si le système aurait agi. Tu confrontes
+ça à ce que tu as vécu sur l'eau :
+
+- `aurait agi = OUI` alors qu'il n'y avait **pas** de danger réel → **faux
+  positif** à corriger (ajuster le seuil, le calcul de cap, la cadence GPS).
+- rapprochement proche de 0 → vous ne vous rapprochiez pas vraiment.
+
+**Tant qu'il reste des faux positifs, le système n'a rien à faire d'autre que
+prévenir.** C'est l'étape obligatoire avant même d'envisager une quelconque
+action — et cette décision, de toute façon, ne se prend pas à la légère sur un
+engin qui se dirige par la poussée.
+
 ## Rappel de sécurité
 
 C'est une aide, pas une garantie. À tester prudemment, loin d'autres usagers,
