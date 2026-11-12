@@ -65,6 +65,19 @@
 #define COLLISION_LOG          1
 #define COLLISION_ACTION_LEVEL 2     // niveau a partir duquel il NOTE "aurait agi" (journal seulement)
 
+// ---------- Limitation des gaz — UNIQUEMENT engins SANS PILOTE, telecommandes ----------
+// DANGER si un humain est a bord : reduire les gaz retire la direction (poussee).
+// A n'activer que sur jet-ski SANS pilote, telecommande, plan d'eau prive ferme.
+// Montage en SERIE : la commande gaz de la telecommande entre ici, ressort plafonnee.
+// Le module ne peut que REDUIRE, jamais augmenter. Desactive par defaut.
+#define THROTTLE_LIMIT_ENABLE 0        // mettre 1 en connaissance de cause
+#define THROTTLE_IN_PIN       35       // entree PWM (servo) depuis le recepteur RC (gaz operateur)
+#define THROTTLE_OUT_PIN      18       // sortie PWM (servo) vers l'actionneur de gaz
+#define THROTTLE_CAP_L1       60       // % de gaz max au niveau 1 (vigilance)
+#define THROTTLE_CAP_L2       25       // % de gaz max au niveau 2 (imminent)
+#define THROTTLE_MIN_US       1000     // largeur d'impulsion servo a 0 %
+#define THROTTLE_MAX_US       2000     // largeur d'impulsion servo a 100 %
+
 // ---------- Anti-demarrage (phase 3, optionnel) ----------
 // -1 = desactive. Sinon GPIO qui pilote le relais (contact NF en serie
 // avec le circuit de demarrage : bobine alimentee = demarrage bloque).

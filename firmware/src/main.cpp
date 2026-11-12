@@ -25,6 +25,7 @@
 #include "config.h"
 #include "can_signals.h"
 #include "collision.h"
+#include "throttle.h"
 
 #if COLLISION_ENABLE
 #include <WiFi.h>
@@ -301,7 +302,14 @@ static void collisionTick() {
     collisionBroadcast();
     lastBeaconMs = now;
   }
-  buzzerUpdate(collisionWorst());
+  int level = collisionWorst();
+  buzzerUpdate(level);
+#if THROTTLE_LIMIT_ENABLE
+  bool fresh = false;
+  for (int i = 0; i < 8; i++)
+    if (peers[i].lastMs && millis() - peers[i].lastMs <= PEER_STALE_MS) { fresh = true; break; }
+  throttleApply(level, !fresh);     // !fresh = fail-safe : plus de donnees -> operateur maitre
+#endif
 #if COLLISION_LOG
   collisionLogTick();
 #endif
@@ -361,6 +369,51 @@ static void collisionLogTick() {
   if (f) f.close();
 }
 #endif  // COLLISION_LOG
+
+#if THROTTLE_LIMIT_ENABLE
+// Limiteur de gaz EN SERIE (engins sans pilote). Lit la commande PWM de la
+// telecommande, la ressort plafonnee. Ne peut que REDUIRE, jamais augmenter.
+static volatile uint32_t thrInRiseUs = 0;
+static volatile uint32_t thrInPulseUs = THROTTLE_MIN_US;
+
+static void IRAM_ATTR onThrottleIn() {
+  if (digitalRead(THROTTLE_IN_PIN)) {
+    thrInRiseUs = micros();
+  } else {
+    uint32_t w = micros() - thrInRiseUs;
+    if (w >= 700 && w <= 2300) thrInPulseUs = w;   // impulsion servo plausible
+  }
+}
+
+static ThrottleCfg throttleCfg = {THROTTLE_CAP_L1, THROTTLE_CAP_L2};
+
+static void throttleInit() {
+  pinMode(THROTTLE_IN_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(THROTTLE_IN_PIN), onThrottleIn, CHANGE);
+  ledcSetup(6, 50, 16);                 // canal 6, 50 Hz (servo), 16 bits
+  ledcAttachPin(THROTTLE_OUT_PIN, 6);
+}
+
+static int pulseToPct(uint32_t us) {
+  if (us <= THROTTLE_MIN_US) return 0;
+  if (us >= THROTTLE_MAX_US) return 100;
+  return (int)((us - THROTTLE_MIN_US) * 100 / (THROTTLE_MAX_US - THROTTLE_MIN_US));
+}
+
+static void writeThrottlePct(int pct) {
+  if (pct < 0) pct = 0;
+  if (pct > 100) pct = 100;
+  uint32_t us = THROTTLE_MIN_US + (uint32_t)(THROTTLE_MAX_US - THROTTLE_MIN_US) * pct / 100;
+  ledcWrite(6, (uint32_t)((uint64_t)us * 65535UL / 20000UL));   // periode servo 20 ms
+}
+
+// Applique le plafond du niveau courant a la commande operateur.
+static void throttleApply(int level, bool linkStale) {
+  int opPct = pulseToPct(thrInPulseUs);
+  int cap = allowedThrottlePct(level, linkStale, throttleCfg);
+  writeThrottlePct(cappedThrottle(opPct, cap));
+}
+#endif  // THROTTLE_LIMIT_ENABLE
 #endif  // COLLISION_ENABLE
 
 // ---------- Modem ----------
@@ -638,6 +691,9 @@ void setup() {
   collisionInit();
 #if COLLISION_LOG
   collisionLogInit();
+#endif
+#if THROTTLE_LIMIT_ENABLE
+  throttleInit();
 #endif
 #endif
 
