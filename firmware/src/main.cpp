@@ -385,7 +385,7 @@ static void IRAM_ATTR onThrottleIn() {
   }
 }
 
-static ThrottleCfg throttleCfg = {THROTTLE_CAP_L1, THROTTLE_CAP_L2};
+static ThrottleCfg throttleCfg = {THROTTLE_CAP_L1, THROTTLE_HOLD_L2};
 
 static void throttleInit() {
   pinMode(THROTTLE_IN_PIN, INPUT);
@@ -407,11 +407,10 @@ static void writeThrottlePct(int pct) {
   ledcWrite(6, (uint32_t)((uint64_t)us * 65535UL / 20000UL));   // periode servo 20 ms
 }
 
-// Applique le plafond du niveau courant a la commande operateur.
+// Calcule et applique le gaz de sortie pour le niveau courant.
 static void throttleApply(int level, bool linkStale) {
   int opPct = pulseToPct(thrInPulseUs);
-  int cap = allowedThrottlePct(level, linkStale, throttleCfg);
-  writeThrottlePct(cappedThrottle(opPct, cap));
+  writeThrottlePct(throttleOutputPct(opPct, level, linkStale, throttleCfg));
 }
 #endif  // THROTTLE_LIMIT_ENABLE
 #endif  // COLLISION_ENABLE

@@ -1,31 +1,36 @@
 // Decision de limitation des gaz — UNIQUEMENT pour jet-ski SANS PILOTE, telecommande.
 //
-// Fonction PURE (testable sur ordinateur). Elle ne decide QUE d'un plafond de gaz
-// en pourcentage. L'application reelle (lire la commande operateur et la plafonner)
-// est dans main.cpp. Par construction, un plafond ne peut que REDUIRE la commande,
-// jamais l'augmenter.
+// Fonction PURE (testable sur ordinateur). Elle calcule le pourcentage de gaz a
+// envoyer a l'actionneur, a partir de la commande operateur et du niveau de risque.
+//
+// Regles :
+//  - niveau 0            : la commande operateur passe telle quelle.
+//  - niveau 1 (vigilance): plafond (reduit seulement, jamais au-dessus de capLevel1).
+//  - niveau 2 (imminent) : MAINTIEN a holdLevel2 % (ex. 10 %). On ne coupe PAS :
+//                          garder un peu de poussee conserve la direction pour
+//                          s'ecarter. Ce maintien peut remonter la commande si
+//                          l'operateur demandait moins.
+//  - link perdu          : fail-safe, l'operateur reprend 100 %.
 #pragma once
 
 struct ThrottleCfg {
-  int capLevel1;   // % de gaz max au niveau 1 (vigilance)
-  int capLevel2;   // % de gaz max au niveau 2 (imminent)
+  int capLevel1;    // % de gaz max au niveau 1 (plafond)
+  int holdLevel2;   // % de gaz maintenu au niveau 2 (ni plus, ni moins)
 };
 
-// level     : niveau de risque collision (0, 1, 2).
-// linkStale : true si on n'a plus de donnees fiables des autres modules
-//             -> fail-safe : aucune limitation, l'operateur reprend tout.
-// Renvoie le plafond de gaz autorise en % (100 = aucune limitation).
-static inline int allowedThrottlePct(int level, bool linkStale, const ThrottleCfg &c) {
-  if (linkStale) return 100;            // fail-safe : plus de donnees -> operateur maitre
-  if (level >= 2) return c.capLevel2;
-  if (level == 1) return c.capLevel1;
-  return 100;                           // pas de risque -> rien de limite
+static inline int clampPct(int p) {
+  if (p < 0) return 0;
+  if (p > 100) return 100;
+  return p;
 }
 
-// Applique un plafond a une commande operateur (toutes deux en %).
-// Ne peut que reduire : min(commande, plafond).
-static inline int cappedThrottle(int operatorPct, int capPct) {
-  if (operatorPct < 0) operatorPct = 0;
-  if (operatorPct > 100) operatorPct = 100;
-  return operatorPct < capPct ? operatorPct : capPct;
+// Renvoie le % de gaz a envoyer a l'actionneur.
+static inline int throttleOutputPct(int operatorPct, int level, bool linkStale,
+                                     const ThrottleCfg &c) {
+  operatorPct = clampPct(operatorPct);
+  if (linkStale) return operatorPct;                    // fail-safe : operateur maitre
+  if (level >= 2) return clampPct(c.holdLevel2);        // maintien (garde la direction)
+  if (level == 1)                                       // plafond : reduit seulement
+    return operatorPct < c.capLevel1 ? operatorPct : c.capLevel1;
+  return operatorPct;                                   // pas de risque
 }

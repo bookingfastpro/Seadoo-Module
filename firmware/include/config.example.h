@@ -73,8 +73,9 @@
 #define THROTTLE_LIMIT_ENABLE 0        // mettre 1 en connaissance de cause
 #define THROTTLE_IN_PIN       35       // entree PWM (servo) depuis le recepteur RC (gaz operateur)
 #define THROTTLE_OUT_PIN      18       // sortie PWM (servo) vers l'actionneur de gaz
-#define THROTTLE_CAP_L1       60       // % de gaz max au niveau 1 (vigilance)
-#define THROTTLE_CAP_L2       25       // % de gaz max au niveau 2 (imminent)
+#define THROTTLE_CAP_L1       60       // % de gaz max au niveau 1 (vigilance, plafond)
+#define THROTTLE_HOLD_L2      10       // % de gaz MAINTENU au niveau 2 (imminent) : ne coupe pas,
+                                       // garde un peu de poussee pour conserver la direction
 #define THROTTLE_MIN_US       1000     // largeur d'impulsion servo a 0 %
 #define THROTTLE_MAX_US       2000     // largeur d'impulsion servo a 100 %
 
