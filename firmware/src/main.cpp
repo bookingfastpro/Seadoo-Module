@@ -18,6 +18,7 @@
 #include <SPI.h>
 #include <TinyGsmClient.h>
 #include "driver/gpio.h"
+#include "driver/rtc_io.h"
 #include "driver/twai.h"
 #include "esp_sleep.h"
 
@@ -345,6 +346,12 @@ static void goToSleep() {
 #endif
   digitalWrite(LED_PIN, HIGH);
   esp_sleep_enable_timer_wakeup((uint64_t)parkedIntervalS * 1000000ULL);
+#if WAKE_PIN >= 0
+  // Au repos, CRX reste au niveau haut ; des la premiere trame (moteur demarre)
+  // il passe au bas et reveille le boitier. Les broches 34-39 sont en entree
+  // seule et pilotees par le transceiver : pas de pull interne a regler.
+  esp_sleep_enable_ext1_wakeup(1ULL << WAKE_PIN, ESP_EXT1_WAKEUP_ALL_LOW);
+#endif
   esp_deep_sleep_start();
 }
 

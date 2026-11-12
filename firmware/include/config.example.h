@@ -24,6 +24,12 @@
 #define CAN_TX_PIN  22                         // vers CTX du transceiver (jamais utilise : ecoute seule)
 #define CAN_RX_PIN  21                         // vers CRX du transceiver
 
+// Reveil au demarrage du moteur : un fil de plus, de CRX (meme broche RX du
+// transceiver) vers ce GPIO. Quand le moteur demarre, le bus s'anime et reveille
+// le boitier en ~1 s, au lieu d'attendre le prochain reveil programme.
+// Doit etre une broche RTC en entree seule : 34, 35, 36 ou 39. -1 = desactive.
+#define WAKE_PIN    34
+
 // ---------- Rythme ----------
 #define ACTIVE_INTERVAL_S   30                 // jet-ski allume : un point toutes les 30 s
 #define PARKED_INTERVAL_S   1800               // a l'arret : reveil toutes les 30 min

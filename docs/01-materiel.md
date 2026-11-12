@@ -34,6 +34,7 @@ Transceiver CAN          Carte LilyGO
    GND  ───────────────── GND
    CTX (D) ────────────── GPIO 22
    CRX (R) ────────────── GPIO 21
+   CRX (R) ────────────── GPIO 34   (2e fil depuis CRX : reveil au demarrage moteur)
    CANH ───────────────── CAN-H du jet-ski (prise diagnostic)
    CANL ───────────────── CAN-L du jet-ski
 ```
