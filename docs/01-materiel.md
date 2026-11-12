@@ -17,6 +17,8 @@ doubler pour équiper les deux GTX.
 | Boîtier étanche | IP67, environ 120 × 80 × 55 mm, + presse-étoupe PG7 | 10–15 € |
 | Connecteur prise diagnostic | Deutsch DT 6 voies (vérifier mâle/femelle sur le jet-ski) + contacts | 8–12 € |
 | Vernis de tropicalisation | bombe pour circuits imprimés | 10 € (pour tous) |
+| Buzzer actif 5 V (alerte anti-collision) | « active buzzer 5V » (celui qui sonne seul sous tension) | 2 € |
+| Optionnel : GPS rapide 5-10 Hz | module u-blox **NEO-M9N** (meilleure anticipation de collision) | 15-25 € |
 | Optionnel : relais anti-démarrage | module relais 5 V 1 voie avec optocoupleur | 3 € |
 | Optionnel : mesure tension batterie | résistances 100 kΩ + 22 kΩ | < 1 € |
 
@@ -37,6 +39,10 @@ Transceiver CAN          Carte LilyGO
    CRX (R) ────────────── GPIO 34   (2e fil depuis CRX : reveil au demarrage moteur)
    CANH ───────────────── CAN-H du jet-ski (prise diagnostic)
    CANL ───────────────── CAN-L du jet-ski
+
+Buzzer actif             Carte LilyGO
+   +    ───────────────── GPIO 19
+   −    ───────────────── GND
 ```
 
 Points importants :

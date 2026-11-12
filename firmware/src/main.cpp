@@ -24,6 +24,13 @@
 
 #include "config.h"
 #include "can_signals.h"
+#include "collision.h"
+
+#if COLLISION_ENABLE
+#include <WiFi.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+#endif
 
 #define SerialAT Serial1
 
@@ -178,6 +185,126 @@ static void applyInhibit() {
   prefs.putBool("inhibit", inhibitActive);
 }
 
+// ---------- Anti-collision (radio directe entre modules) ----------
+// Couche RADIO uniquement. Le calcul du risque est dans collision.h (teste a part).
+#if COLLISION_ENABLE
+struct __attribute__((packed)) Beacon {
+  uint32_t magic;
+  char id[12];
+  double lat, lon;
+  float speed_mps, heading_deg;
+  uint32_t seq;
+};
+static const uint32_t BEACON_MAGIC = 0x5EAD0C01;
+static uint8_t BCAST_ADDR[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+struct Peer { char id[12]; CraftState st; uint32_t lastMs; };
+static Peer peers[8];
+static CraftState ownState = {0, 0, 0, 0, false};
+static float collisionThreshold = COLLISION_DISTANCE_M;
+static uint32_t ownSeq = 0, lastBeaconMs = 0, lastBuzzToggleMs = 0;
+static bool buzzOn = false;
+
+// arduino-esp32 2.0.x : rappel de reception (mac, data, len).
+static void onBeacon(const uint8_t *, const uint8_t *data, int len) {
+  if (len != (int)sizeof(Beacon)) return;
+  Beacon b;
+  memcpy(&b, data, sizeof(b));
+  if (b.magic != BEACON_MAGIC) return;
+  if (strncmp(b.id, DEVICE_ID, sizeof(b.id)) == 0) return;  // ignorer son propre echo
+  int slot = -1, freeSlot = -1;
+  for (int i = 0; i < 8; i++) {
+    if (peers[i].lastMs && strncmp(peers[i].id, b.id, sizeof(b.id)) == 0) { slot = i; break; }
+    if (!peers[i].lastMs && freeSlot < 0) freeSlot = i;
+  }
+  if (slot < 0) slot = (freeSlot >= 0) ? freeSlot : 0;
+  strncpy(peers[slot].id, b.id, sizeof(peers[slot].id));
+  peers[slot].st = {b.lat, b.lon, b.speed_mps, b.heading_deg, true};
+  peers[slot].lastMs = millis() | 1;
+}
+
+static void collisionInit() {
+#if BUZZER_PIN >= 0
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+#endif
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+  if (esp_now_init() != ESP_OK) { Serial.println("ESP-NOW : echec init"); return; }
+  esp_now_register_recv_cb(onBeacon);
+  esp_now_peer_info_t p = {};
+  memcpy(p.peer_addr, BCAST_ADDR, 6);
+  p.channel = 1;
+  p.encrypt = false;
+  esp_now_add_peer(&p);
+}
+
+static void collisionBroadcast() {
+  if (!ownState.valid) return;
+  Beacon b = {BEACON_MAGIC, {0}, ownState.lat, ownState.lon,
+              ownState.speed_mps, ownState.heading_deg, ++ownSeq};
+  strncpy(b.id, DEVICE_ID, sizeof(b.id));
+  esp_now_send(BCAST_ADDR, (uint8_t *)&b, sizeof(b));
+}
+
+// Renvoie le niveau de risque le plus eleve parmi les modules entendus recemment.
+static int collisionWorst() {
+  int worst = 0;
+  Threat wt = {0, 0, 0, 0, 0};
+  for (int i = 0; i < 8; i++) {
+    if (!peers[i].lastMs || millis() - peers[i].lastMs > PEER_STALE_MS) continue;
+    Threat t = assessThreat(ownState, peers[i].st, collisionThreshold);
+    if (t.level > worst) { worst = t.level; wt = t; }
+  }
+  if (worst && millis() - lastBeaconMs < 50) {  // trace de temps en temps
+    Serial.printf("COLLISION niveau %d  dist=%.0fm  rappr=%.1fm/s\n", worst, wt.distance_m,
+                  wt.range_rate_mps);
+  }
+  return worst;
+}
+
+// Buzzer : eteint (0), bip lent (vigilance), bip rapide (imminent).
+static void buzzerUpdate(int level) {
+#if BUZZER_PIN >= 0
+  uint32_t period = (level >= 2) ? 150 : (level == 1 ? 600 : 0);
+  if (period == 0) {
+    if (buzzOn) { digitalWrite(BUZZER_PIN, LOW); buzzOn = false; }
+    return;
+  }
+  if (millis() - lastBuzzToggleMs >= period) {
+    buzzOn = !buzzOn;
+    digitalWrite(BUZZER_PIN, buzzOn ? HIGH : LOW);
+    lastBuzzToggleMs = millis();
+  }
+#endif
+}
+
+// A appeler souvent quand le moteur tourne : diffuse, evalue, pilote le buzzer.
+static void collisionTick() {
+  uint32_t now = millis();
+  if (now - lastBeaconMs >= (uint32_t)(1000 / COLLISION_TX_HZ)) {
+    collisionBroadcast();
+    lastBeaconMs = now;
+  }
+  buzzerUpdate(collisionWorst());
+}
+
+// Met a jour son propre etat depuis un point GPS ; le cap est deduit du deplacement.
+static void collisionSetOwn(double lat, double lon, float speed_mps) {
+  if (ownState.valid) {
+    double dx = (lon - ownState.lon) * cos(lat * M_PI / 180.0);
+    double dy = (lat - ownState.lat);
+    if (fabs(dx) + fabs(dy) > 1e-7)
+      ownState.heading_deg = fmod(atan2(dx, dy) * 180.0 / M_PI + 360.0, 360.0);
+  }
+  ownState.lat = lat;
+  ownState.lon = lon;
+  ownState.speed_mps = speed_mps;
+  ownState.valid = true;
+}
+#endif  // COLLISION_ENABLE
+
 // ---------- Modem ----------
 static void modemPowerOn() {
   pinMode(MODEM_FLIGHT_PIN, OUTPUT);
@@ -275,6 +402,10 @@ static void handleServerResponse(const String &response) {
   JsonDocument doc;
   if (response.isEmpty() || deserializeJson(doc, response)) return;
   if (doc["start_inhibit"].is<bool>()) inhibitWanted = doc["start_inhibit"].as<bool>();
+#if COLLISION_ENABLE
+  float cd = doc["collision_distance_m"] | 0.0f;
+  if (cd >= 20 && cd <= 2000) collisionThreshold = cd;
+#endif
   uint32_t a = doc["active_interval_s"] | 0;
   uint32_t p = doc["parked_interval_s"] | 0;
   if (a >= 5 && a <= 3600 && a != activeIntervalS) {
@@ -305,6 +436,10 @@ static bool sendReport(bool waitFix) {
       delay(100);
     }
   } while (millis() - t0 < (uint32_t)GPS_FIX_TIMEOUT_S * 1000UL);
+
+#if COLLISION_ENABLE
+  if (fix) collisionSetOwn(lat, lon, speed / 3.6f);  // speed en km/h -> m/s
+#endif
 
   JsonDocument doc;
   doc["device_id"] = DEVICE_ID;
@@ -338,6 +473,13 @@ static bool sendReport(bool waitFix) {
 static void goToSleep() {
   Serial.printf("Sommeil pour %lu s\n", (unsigned long)parkedIntervalS);
   if (modemReady) modem.poweroff();
+#if COLLISION_ENABLE
+  esp_now_deinit();
+  WiFi.mode(WIFI_OFF);
+#if BUZZER_PIN >= 0
+  digitalWrite(BUZZER_PIN, LOW);
+#endif
+#endif
   twai_stop();
   twai_driver_uninstall();
 #if RELAY_PIN >= 0
@@ -374,6 +516,10 @@ void setup() {
   snifferLoop();
 #endif
 
+#if COLLISION_ENABLE
+  collisionInit();
+#endif
+
   // Laisse 3 s au bus pour se manifester avant de decider si le jet-ski est allume.
   uint32_t t0 = millis();
   while (millis() - t0 < 3000) {
@@ -388,6 +534,18 @@ void loop() {
 
   bool alive = canAlive();
   uint32_t now = millis();
+
+#if COLLISION_ENABLE
+  if (alive) {
+    static uint32_t lastGps = 0;
+    if (modemReady && millis() - lastGps > 1000) {  // rafraichit sa position ~1 Hz
+      float la, lo, sp;
+      if (modem.getGPS(&la, &lo, &sp)) collisionSetOwn(la, lo, sp / 3.6f);
+      lastGps = millis();
+    }
+    collisionTick();
+  }
+#endif
 
   if (!reportedOnce || (alive && now - lastReportMs >= activeIntervalS * 1000UL)) {
     sendReport(!reportedOnce);                    // premier envoi : on attend le fix GNSS

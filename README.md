@@ -23,6 +23,7 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 | Jet-ski allumé / éteint, réseau, tension batterie | prêt |
 | Régime, vitesse, carburant, heures moteur | **à décoder** sur le bus CAN (étape 2) |
 | Anti-démarrage à distance | prêt côté logiciel, câblage à faire (étape 5) |
+| **Anti-collision** entre nos modules (buzzer, seuil réglable) | logique vérifiée, radio à tester sur l'eau (docs/05) |
 | Bridage de vitesse à distance | volontairement absent (voir docs/04) |
 
 ## Contenu du dépôt
@@ -33,6 +34,7 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 | `backend/supabase/` | Base de données + fonction qui reçoit les données |
 | `dashboard/` | Tableau de bord web (carte, état, commandes) |
 | `tools/can_analyze.py` | Outil pour décoder le bus CAN |
+| `tools/collision_test.cpp` | Vérification du calcul anti-collision |
 | `docs/` | Guides pas à pas |
 
 ## Feuille de route

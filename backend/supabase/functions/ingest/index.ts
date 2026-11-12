@@ -98,5 +98,6 @@ Deno.serve(async (req) => {
     start_inhibit: dev.start_inhibit,
     active_interval_s: dev.active_interval_s,
     parked_interval_s: dev.parked_interval_s,
+    collision_distance_m: dev.collision_distance_m,
   });
 });

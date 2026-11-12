@@ -10,6 +10,7 @@ create table public.devices (
   start_inhibit     boolean not null default false,-- consigne anti-demarrage
   active_interval_s integer not null default 30,
   parked_interval_s integer not null default 1800,
+  collision_distance_m integer not null default 120,  -- seuil d'alerte anti-collision
   -- cloture virtuelle (optionnelle)
   geofence_lat      double precision,
   geofence_lon      double precision,
@@ -69,11 +70,11 @@ create policy "lecture alerts"    on public.alerts    for select to authenticate
 --  on retire le droit global puis on redonne colonne par colonne)
 revoke all on public.devices from authenticated, anon;
 grant select (id, name, start_inhibit, active_interval_s, parked_interval_s,
-              geofence_lat, geofence_lon, geofence_radius_m, last_seen, last_lat,
-              last_lon, last_can_alive, inhibit_active, outside_geofence)
+              collision_distance_m, geofence_lat, geofence_lon, geofence_radius_m,
+              last_seen, last_lat, last_lon, last_can_alive, inhibit_active, outside_geofence)
   on public.devices to authenticated;
 grant update (name, start_inhibit, active_interval_s, parked_interval_s,
-              geofence_lat, geofence_lon, geofence_radius_m)
+              collision_distance_m, geofence_lat, geofence_lon, geofence_radius_m)
   on public.devices to authenticated;
 
 -- Enregistrer un boitier (a lancer une fois par jet-ski, dans l'editeur SQL) :

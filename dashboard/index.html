@@ -80,7 +80,7 @@ function ago(ts) {
 
 async function refresh() {
   const { data, error } = await db.from('devices')
-    .select('id,name,start_inhibit,inhibit_active,last_seen,last_lat,last_lon,last_can_alive,outside_geofence,geofence_lat,geofence_lon,geofence_radius_m')
+    .select('id,name,start_inhibit,inhibit_active,last_seen,last_lat,last_lon,last_can_alive,outside_geofence,geofence_lat,geofence_lon,geofence_radius_m,collision_distance_m')
     .order('name');
   if (error) { $('devices').innerHTML = `<p class="err">${esc(error.message)}</p>`; return; }
   devices = data;
@@ -112,6 +112,7 @@ async function refresh() {
       <div class="row">
         <button data-act="inhibit" class="${d.start_inhibit ? 'ghost' : 'danger'}">${d.start_inhibit ? 'Autoriser le démarrage' : 'Bloquer le démarrage'}</button>
         <button data-act="zone" class="ghost">${d.geofence_radius_m ? 'Retirer la zone' : 'Zone ici'}</button>
+        <button data-act="collide" class="ghost">Anti-collision : ${d.collision_distance_m} m</button>
       </div>
       <div class="muted" style="margin-top:6px">Démarrage : ${d.inhibit_active ? 'bloqué' : 'autorisé'}${pending ? ' (changement en attente du prochain contact)' : ''}</div>`;
     el.onclick = (e) => onCard(d, e.target.dataset.act);
@@ -157,6 +158,10 @@ async function onCard(d, act) {
       if (!r || r < 50) return;
       await db.from('devices').update({ geofence_lat: d.last_lat, geofence_lon: d.last_lon, geofence_radius_m: Math.round(r) }).eq('id', d.id);
     }
+  } else if (act === 'collide') {
+    const v = Number(prompt('Distance d\'alerte anti-collision (mètres), entre 20 et 2000 :', d.collision_distance_m));
+    if (!v || v < 20 || v > 2000) return;
+    await db.from('devices').update({ collision_distance_m: Math.round(v) }).eq('id', d.id);
   } else {
     selected = d.id;
     map._moved = false;
