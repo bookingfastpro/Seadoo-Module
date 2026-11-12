@@ -35,20 +35,45 @@ Si le module n'a plus de données fiables des autres jet-skis depuis
 `PEER_STALE_MS` (3 s), il **ne limite plus** : la télécommande reprend 100 % du
 contrôle. Perte de radio = retour au comportement normal, comme demandé.
 
-## Branchement (à adapter à ta conversion RC)
+## Branchement
+
+Le servo tire physiquement la gâchette. Notre module s'intercale sur le **fil de
+signal** entre le récepteur RC et ce servo.
+
+```
+Récepteur RC (voie gaz) ──signal──► module (IN 35)
+                                     module (OUT 18) ──signal──► servo gâchette
+                              masse commune partout
+```
 
 | Signal | Broche carte | Vers |
 |---|---|---|
-| Entrée gaz opérateur (PWM servo) | `THROTTLE_IN_PIN` (35) | sortie « gaz » du récepteur RC |
-| Sortie gaz plafonnée (PWM servo) | `THROTTLE_OUT_PIN` (18) | actionneur de gaz (servo / ESC / entrée gaz) |
-| Masse commune | GND | masse du système RC |
+| Entrée : gâchette opérateur (PWM) | `THROTTLE_IN_PIN` (35) | sortie voie gaz du récepteur RC |
+| Sortie : gâchette plafonnée (PWM) | `THROTTLE_OUT_PIN` (18) | fil signal du servo de gâchette |
+| Masse commune | GND | masse du récepteur **et** du servo |
+| Commande du relais de contournement | `BYPASS_RELAY_PIN` (23) | bobine du relais (via driver) |
 
-Réglages PWM : `THROTTLE_MIN_US` / `THROTTLE_MAX_US` (1000–2000 µs par défaut,
-standard servo). À ajuster si ton actionneur utilise d'autres largeurs.
+> **N'alimente PAS le servo depuis la carte** : seul le fil de **signal** passe par
+> le module. Le servo garde son alimentation 5–6 V du système RC (BEC/batterie).
 
-> Ceci suppose une commande de gaz en **PWM servo standard**. Si ta conversion
-> pilote les gaz autrement (tension analogique, bus, ESC particulier), dis-le :
-> on adapte l'étage de sortie. C'est le seul point qui dépend de ton matériel.
+### Relais de contournement (sécurité du montage en série)
+
+Un relais dont le contact relie **directement récepteur → servo** au repos :
+
+- Module **éteint, en veille ou planté** (reset) → relais retombé → la télécommande
+  pilote le servo **en direct**. Un module mort ne bloque jamais la gâchette.
+- Module **en marche** → il excite le relais et prend la main (sortie plafonnée).
+
+C'est le pendant matériel du fail-safe logiciel. Fortement recommandé ; sinon un
+plantage pourrait figer la gâchette sur la dernière valeur.
+
+### Calibration (à faire une fois)
+
+Règle `THROTTLE_MIN_US` / `THROTTLE_MAX_US` sur les largeurs réelles qui
+correspondent, **sur ton montage**, à gâchette **relâchée** (0 %) et **plein gaz**
+(100 %). Mesure-les (servo tester / moniteur) : beaucoup de servos ne sont pas
+exactement 1000/2000 µs. Vérifie aussi le sens (que `MIN_US` = ralenti, pas
+l'inverse).
 
 ## Procédure de test (banc / remorque d'abord)
 

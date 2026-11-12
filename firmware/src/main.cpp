@@ -388,10 +388,27 @@ static void IRAM_ATTR onThrottleIn() {
 static ThrottleCfg throttleCfg = {THROTTLE_CAP_L1, THROTTLE_HOLD_L2};
 
 static void throttleInit() {
+#if BYPASS_RELAY_PIN >= 0
+  pinMode(BYPASS_RELAY_PIN, OUTPUT);
+  digitalWrite(BYPASS_RELAY_PIN, LOW);  // contournement : recepteur -> servo en direct
+#endif
   pinMode(THROTTLE_IN_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(THROTTLE_IN_PIN), onThrottleIn, CHANGE);
   ledcSetup(6, 50, 16);                 // canal 6, 50 Hz (servo), 16 bits
   ledcAttachPin(THROTTLE_OUT_PIN, 6);
+  // On laisse passer un instant la commande operateur avant de prendre la main,
+  // le temps d'avoir une largeur d'impulsion valide.
+  delay(60);
+#if BYPASS_RELAY_PIN >= 0
+  digitalWrite(BYPASS_RELAY_PIN, HIGH); // module en controle (sortie plafonnee vers le servo)
+#endif
+}
+
+// Rend le servo a la telecommande (contournement direct). Appele avant la veille.
+static void throttleRelease() {
+#if BYPASS_RELAY_PIN >= 0
+  digitalWrite(BYPASS_RELAY_PIN, LOW);
+#endif
 }
 
 static int pulseToPct(uint32_t us) {
@@ -639,6 +656,9 @@ static uint32_t activeIntervalMs() {
 
 static void goToSleep() {
   Serial.printf("Sommeil pour %lu s\n", (unsigned long)parkedIntervalS);
+#if COLLISION_ENABLE && THROTTLE_LIMIT_ENABLE
+  throttleRelease();                    // en veille : la telecommande garde le servo
+#endif
 #if TRANSPORT_MQTT
   if (mqtt.connected()) mqtt.disconnect();
 #endif

@@ -76,8 +76,14 @@
 #define THROTTLE_CAP_L1       60       // % de gaz max au niveau 1 (vigilance, plafond)
 #define THROTTLE_HOLD_L2      10       // % de gaz MAINTENU au niveau 2 (imminent) : ne coupe pas,
                                        // garde un peu de poussee pour conserver la direction
-#define THROTTLE_MIN_US       1000     // largeur d'impulsion servo a 0 %
-#define THROTTLE_MAX_US       2000     // largeur d'impulsion servo a 100 %
+#define THROTTLE_MIN_US       1000     // largeur d'impulsion servo a 0 % (gachette relachee) — a CALIBRER
+#define THROTTLE_MAX_US       2000     // largeur d'impulsion servo a 100 % (plein gaz) — a CALIBRER
+// Relais de contournement (securite du montage en serie). Un relais dont le
+// contact relie DIRECTEMENT recepteur -> servo au repos. Le module l'excite
+// seulement quand il tourne et prend la main. Module eteint, en veille ou plante
+// (reset watchdog) => relais retombe => la telecommande reprend le servo en direct.
+// Fortement recommande. -1 = pas de relais.
+#define BYPASS_RELAY_PIN      23
 
 // ---------- Anti-demarrage (phase 3, optionnel) ----------
 // -1 = desactive. Sinon GPIO qui pilote le relais (contact NF en serie
