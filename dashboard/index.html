@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes Sea-Doo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg:#0e1a24; --panel:#16283a; --line:#27425c; --text:#e8f0f6; --muted:#8fa6ba; --accent:#2fb5c9; --warn:#f0a53a; --bad:#e2574c; --ok:#3fbf7f; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; display: flex; flex-direction: column; }
+  header { padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 17px; margin: 0; }
+  main { flex: 1; display: grid; grid-template-columns: 340px 1fr; min-height: 0; }
+  #side { overflow-y: auto; padding: 12px; border-right: 1px solid var(--line); }
+  #map { min-height: 300px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; cursor: pointer; }
+  .card.sel { border-color: var(--accent); }
+  .card h2 { font-size: 16px; margin: 0 0 4px; display: flex; justify-content: space-between; gap: 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 10px 0; font-variant-numeric: tabular-nums; }
+  .grid b { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .pill { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--line); white-space: nowrap; }
+  .pill.on { background: var(--ok); color: #04210f; } .pill.bad { background: var(--bad); }
+  button, input { font: inherit; border-radius: 8px; border: 1px solid var(--line); padding: 8px 12px; background: #0e1a24; color: var(--text); }
+  button { cursor: pointer; background: var(--accent); border-color: var(--accent); color: #032329; font-weight: 600; }
+  button.ghost { background: transparent; color: var(--text); border-color: var(--line); font-weight: 400; }
+  button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  #login { max-width: 340px; margin: 12vh auto; padding: 0 16px; display: grid; gap: 10px; }
+  #alerts li { margin-bottom: 6px; }
+  #alerts { padding-left: 18px; margin: 6px 0 0; }
+  .err { color: var(--warn); }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; grid-template-rows: 45vh auto; } #map { order: -1; } #side { border-right: 0; } }
+</style>
+</head>
+<body>
+<header><h1>Mes Sea-Doo</h1><button id="logout" class="ghost" hidden>Déconnexion</button></header>
+
+<form id="login" hidden>
+  <input id="email" type="email" placeholder="E-mail" autocomplete="username" required>
+  <input id="password" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+  <button>Connexion</button>
+  <div id="loginErr" class="err"></div>
+</form>
+
+<main id="app" hidden>
+  <div id="side">
+    <div id="devices"></div>
+    <div class="card" style="cursor:default">
+      <h2>Alertes récentes</h2>
+      <ul id="alerts" class="muted"></ul>
+    </div>
+  </div>
+  <div id="map"></div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const cfg = window.SEADOO_CONFIG;
+if (!cfg) document.body.innerHTML = '<p style="padding:24px">Fichier <code>config.js</code> manquant : copier <code>config.example.js</code> et le remplir.</p>';
+const db = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+let map, markers = {}, track, zone, selected = null, devices = [];
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const val = (v, unit, digits = 0) => v == null ? '—' : Number(v).toFixed(digits) + unit;
+function ago(ts) {
+  if (!ts) return 'jamais vu';
+  const s = (Date.now() - new Date(ts)) / 1000;
+  if (s < 90) return "à l'instant";
+  if (s < 5400) return `il y a ${Math.round(s / 60)} min`;
+  if (s < 172800) return `il y a ${Math.round(s / 3600)} h`;
+  return `il y a ${Math.round(s / 86400)} j`;
+}
+
+async function refresh() {
+  const { data, error } = await db.from('devices')
+    .select('id,name,start_inhibit,inhibit_active,last_seen,last_lat,last_lon,last_can_alive,outside_geofence,geofence_lat,geofence_lon,geofence_radius_m')
+    .order('name');
+  if (error) { $('devices').innerHTML = `<p class="err">${esc(error.message)}</p>`; return; }
+  devices = data;
+  if (!selected && devices.length) selected = devices[0].id;
+
+  const latest = {};
+  await Promise.all(devices.map(async (d) => {
+    const r = await db.from('telemetry').select('*').eq('device_id', d.id).order('ts', { ascending: false }).limit(1);
+    latest[d.id] = r.data?.[0];
+  }));
+
+  $('devices').innerHTML = devices.length ? '' : '<p class="muted">Aucun boîtier enregistré (voir docs/03-backend.md).</p>';
+  for (const d of devices) {
+    const t = latest[d.id] || {};
+    const pending = d.start_inhibit !== !!d.inhibit_active;
+    const el = document.createElement('div');
+    el.className = 'card' + (d.id === selected ? ' sel' : '');
+    el.innerHTML = `
+      <h2>${esc(d.name)} <span class="pill ${d.last_can_alive ? 'on' : ''}">${d.last_can_alive ? 'allumé' : 'éteint'}</span></h2>
+      <div class="muted">${ago(d.last_seen)}${d.outside_geofence ? ' · <span class="err">hors zone</span>' : ''}</div>
+      <div class="grid">
+        <div><b>Vitesse</b>${val(t.speed_kmh ?? t.gps_speed_kmh, ' km/h')}</div>
+        <div><b>Régime</b>${val(t.rpm, ' tr/min')}</div>
+        <div><b>Carburant</b>${val(t.fuel_pct, ' %')}</div>
+        <div><b>Heures moteur</b>${val(t.engine_hours, ' h', 1)}</div>
+        <div><b>Batterie</b>${val(t.batt_v, ' V', 1)}</div>
+        <div><b>Réseau</b>${val(t.rssi, ' /31')}</div>
+      </div>
+      <div class="row">
+        <button data-act="inhibit" class="${d.start_inhibit ? 'ghost' : 'danger'}">${d.start_inhibit ? 'Autoriser le démarrage' : 'Bloquer le démarrage'}</button>
+        <button data-act="zone" class="ghost">${d.geofence_radius_m ? 'Retirer la zone' : 'Zone ici'}</button>
+      </div>
+      <div class="muted" style="margin-top:6px">Démarrage : ${d.inhibit_active ? 'bloqué' : 'autorisé'}${pending ? ' (changement en attente du prochain contact)' : ''}</div>`;
+    el.onclick = (e) => onCard(d, e.target.dataset.act);
+    $('devices').appendChild(el);
+
+    if (d.last_lat != null) {
+      const ll = [d.last_lat, d.last_lon];
+      if (!markers[d.id]) markers[d.id] = L.marker(ll).addTo(map).on('click', () => { selected = d.id; refresh(); });
+      markers[d.id].setLatLng(ll).bindTooltip(d.name);
+    }
+  }
+  await drawSelected();
+
+  const a = await db.from('alerts').select('ts,message').order('ts', { ascending: false }).limit(8);
+  $('alerts').innerHTML = (a.data || []).map((x) => `<li>${esc(x.message)} <span>(${ago(x.ts)})</span></li>`).join('') || '<li>Aucune</li>';
+}
+
+async function drawSelected() {
+  const d = devices.find((x) => x.id === selected);
+  if (track) track.remove();
+  if (zone) zone.remove();
+  track = zone = null;
+  if (!d) return;
+  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const r = await db.from('telemetry').select('lat,lon').eq('device_id', d.id).eq('fix', true)
+    .gte('ts', since).order('ts', { ascending: true }).limit(5000);
+  const pts = (r.data || []).map((p) => [p.lat, p.lon]);
+  if (pts.length > 1) track = L.polyline(pts, { color: '#2fb5c9', weight: 3 }).addTo(map);
+  if (d.geofence_radius_m) zone = L.circle([d.geofence_lat, d.geofence_lon], { radius: d.geofence_radius_m, color: '#f0a53a', fill: false }).addTo(map);
+  if (d.last_lat != null && !map._moved) { map.setView([d.last_lat, d.last_lon], 14); map._moved = true; }
+}
+
+async function onCard(d, act) {
+  if (act === 'inhibit') {
+    if (!d.start_inhibit && !confirm(`Bloquer le démarrage de ${d.name} ?\nLe blocage ne s'applique jamais moteur en marche.`)) return;
+    await db.from('devices').update({ start_inhibit: !d.start_inhibit }).eq('id', d.id);
+  } else if (act === 'zone') {
+    if (d.geofence_radius_m) {
+      await db.from('devices').update({ geofence_lat: null, geofence_lon: null, geofence_radius_m: null }).eq('id', d.id);
+    } else {
+      if (d.last_lat == null) return alert('Pas encore de position connue.');
+      const r = Number(prompt('Rayon de la zone autour de la position actuelle (mètres) :', '500'));
+      if (!r || r < 50) return;
+      await db.from('devices').update({ geofence_lat: d.last_lat, geofence_lon: d.last_lon, geofence_radius_m: Math.round(r) }).eq('id', d.id);
+    }
+  } else {
+    selected = d.id;
+    map._moved = false;
+  }
+  refresh();
+}
+
+function start() {
+  $('login').hidden = true; $('app').hidden = false; $('logout').hidden = false;
+  if (!map) {
+    map = L.map('map').setView([46.6, 2.4], 5);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    setInterval(refresh, 15000);
+  }
+  refresh();
+}
+
+$('login').onsubmit = async (e) => {
+  e.preventDefault();
+  const { error } = await db.auth.signInWithPassword({ email: $('email').value, password: $('password').value });
+  $('loginErr').textContent = error ? error.message : '';
+  if (!error) start();
+};
+$('logout').onclick = async () => { await db.auth.signOut(); location.reload(); };
+
+db.auth.getSession().then(({ data }) => { if (data.session) start(); else $('login').hidden = false; });
+</script>
+</body>
+</html>
