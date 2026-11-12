@@ -20,9 +20,13 @@ Récepteur RC (gaz opérateur) ──PWM──► [module : plafond] ──PWM�
 - Pas de risque → la commande ressort **telle quelle**.
 - Niveau 1 (vigilance) → gaz **plafonnés** à `THROTTLE_CAP_L1` (60 % par défaut) :
   réduit seulement.
-- Niveau 2 (imminent) → gaz **maintenus** à `THROTTLE_HOLD_L2` (10 % par défaut) :
-  **on ne coupe pas**. Garder un peu de poussée conserve la direction pour
-  s'écarter plutôt que de filer tout droit.
+- Niveau 2 (imminent) → le robot **maintient l'appui** à `THROTTLE_HOLD_L2`
+  (10 % de course par défaut) : **on n'arrête pas d'appuyer**. Garder un peu de
+  poussée conserve la direction pour s'écarter plutôt que de filer tout droit.
+
+> Les % sont une **course de gâchette** (jusqu'où le robot appuie), pas une valeur
+> lue sur le jet-ski. La course n'est pas linéaire avec la vitesse : cale les 10 %
+> sur l'appui qui donne, chez toi, une allure lente et manœuvrable.
 
 **À savoir :** au niveau 1, la sortie ne fait que réduire la commande. Au niveau 2,
 elle **maintient** 10 % — donc si la télécommande demandait moins (0 %), le module
