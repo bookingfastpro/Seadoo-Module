@@ -204,15 +204,16 @@ struct __attribute__((packed)) Beacon {
   char id[12];
   double lat, lon;
   float speed_mps, heading_deg;
+  float radius_m;          // rayon de securite de CE jet-ski
   uint32_t seq;
 };
-static const uint32_t BEACON_MAGIC = 0x5EAD0C01;
+static const uint32_t BEACON_MAGIC = 0x5EAD0C02;  // +1 : le format a change (rayon)
 static uint8_t BCAST_ADDR[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-struct Peer { char id[12]; CraftState st; uint32_t lastMs; };
+struct Peer { char id[12]; CraftState st; float radius; uint32_t lastMs; };
 static Peer peers[8];
 static CraftState ownState = {0, 0, 0, 0, false};
-static float collisionThreshold = COLLISION_DISTANCE_M;
+static float collisionRadius = COLLISION_RADIUS_M;   // notre propre rayon (reglable)
 static uint32_t ownSeq = 0, lastBeaconMs = 0, lastBuzzToggleMs = 0;
 static bool buzzOn = false;
 
@@ -231,6 +232,7 @@ static void onBeacon(const uint8_t *, const uint8_t *data, int len) {
   if (slot < 0) slot = (freeSlot >= 0) ? freeSlot : 0;
   strncpy(peers[slot].id, b.id, sizeof(peers[slot].id));
   peers[slot].st = {b.lat, b.lon, b.speed_mps, b.heading_deg, true};
+  peers[slot].radius = b.radius_m;
   peers[slot].lastMs = millis() | 1;
 }
 
@@ -254,7 +256,7 @@ static void collisionInit() {
 static void collisionBroadcast() {
   if (!ownState.valid) return;
   Beacon b = {BEACON_MAGIC, {0}, ownState.lat, ownState.lon,
-              ownState.speed_mps, ownState.heading_deg, ++ownSeq};
+              ownState.speed_mps, ownState.heading_deg, collisionRadius, ++ownSeq};
   strncpy(b.id, DEVICE_ID, sizeof(b.id));
   esp_now_send(BCAST_ADDR, (uint8_t *)&b, sizeof(b));
 }
@@ -265,7 +267,8 @@ static int collisionWorst() {
   Threat wt = {0, 0, 0, 0, 0};
   for (int i = 0; i < 8; i++) {
     if (!peers[i].lastMs || millis() - peers[i].lastMs > PEER_STALE_MS) continue;
-    Threat t = assessThreat(ownState, peers[i].st, collisionThreshold);
+    // alerte quand les deux rayons se touchent : distance < somme des rayons
+    Threat t = assessThreat(ownState, peers[i].st, collisionRadius + peers[i].radius);
     if (t.level > worst) { worst = t.level; wt = t; }
   }
   if (worst && millis() - lastBeaconMs < 50) {  // trace de temps en temps
@@ -345,7 +348,7 @@ static void collisionLogTick() {
   if (collLogReady) f = SD.open("/collision_log.csv", FILE_APPEND);
   for (int i = 0; i < 8; i++) {
     if (!peers[i].lastMs || millis() - peers[i].lastMs > PEER_STALE_MS) continue;
-    Threat t = assessThreat(ownState, peers[i].st, collisionThreshold);
+    Threat t = assessThreat(ownState, peers[i].st, collisionRadius + peers[i].radius);
     if (t.level < 1) continue;
     int wouldAct = (t.level >= COLLISION_ACTION_LEVEL) ? 1 : 0;
     char line[128];
@@ -458,8 +461,8 @@ static void handleServerResponse(const String &response) {
   if (response.isEmpty() || deserializeJson(doc, response)) return;
   if (doc["start_inhibit"].is<bool>()) inhibitWanted = doc["start_inhibit"].as<bool>();
 #if COLLISION_ENABLE
-  float cd = doc["collision_distance_m"] | 0.0f;
-  if (cd >= 20 && cd <= 2000) collisionThreshold = cd;
+  float cr = doc["collision_radius_m"] | 0.0f;
+  if (cr >= 10 && cr <= 1000) collisionRadius = cr;
 #endif
   uint32_t a = doc["active_interval_s"] | 0;
   uint32_t p = doc["parked_interval_s"] | 0;

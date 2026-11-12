@@ -16,14 +16,20 @@ Chaque module diffuse sa position plusieurs fois par seconde. Chaque module
 entend les autres, calcule le risque **localement** et sonne si besoin. Ça marche
 même sans réseau mobile.
 
-## Déclenchement
+## Modèle « rayon »
+
+Chaque jet-ski porte un **rayon de sécurité** (par défaut **100 m**, réglable par
+jet-ski depuis le tableau de bord, où il est dessiné sur la carte). Chaque module
+diffuse son rayon aux autres.
 
 L'alarme ne sonne que si **deux conditions** sont réunies :
 
-1. distance < seuil (par défaut **120 m**, réglable depuis le tableau de bord), **et**
+1. les **deux rayons se touchent** : distance < rayon_A + rayon_B (deux rayons de
+   100 m → les cercles se touchent à 200 m), **et**
 2. les deux jet-skis se **rapprochent** vraiment (trajectoires qui convergent).
 
-Donc rouler côte à côte à distance constante **ne sonne pas**. Le calcul (point
+Donc rouler côte à côte à distance constante **ne sonne pas**, même si les cercles
+se chevauchent. Le calcul (point
 de plus courte approche) est dans `firmware/include/collision.h` et il est
 vérifié par `tools/collision_test.cpp` :
 
@@ -40,11 +46,13 @@ Niveaux :
 | 1 | dans la zone en se rapprochant, ou va y entrer bientôt | bip lent |
 | 2 | collision imminente | bip rapide |
 
-## Réglage de la distance
+## Réglage du rayon
 
-Tableau de bord → bouton « Anti-collision : 120 m » → nouvelle valeur. Elle
-descend aux modules par la 4G, puis chaque module l'utilise dans son calcul
-local. À régler sur la **même valeur** pour tous les jet-skis.
+Tableau de bord → bouton « Rayon anti-collision : 100 m » → nouvelle valeur. Elle
+descend aux modules par la 4G (message retenu), puis chaque module diffuse son
+rayon et l'utilise dans son calcul local. Chaque jet-ski peut avoir son propre
+rayon ; l'alerte se déclenche sur la **somme** des deux. Le cercle est dessiné
+autour de chaque jet-ski sur la carte.
 
 ## Portée radio : à vérifier sur l'eau
 
