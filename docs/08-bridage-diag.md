@@ -63,7 +63,7 @@ Points d'attention repérés à la capture :
 
 ## Remplir et activer
 
-1. Recopier la séquence capturée dans `firmware/include/diag_commands.h` :
+1. Recopier la séquence capturée dans le profil du modèle (`firmware/include/profiles/<modèle>.h`) :
    `DIAG_LIMIT_ON[]` (activation) et `DIAG_LIMIT_OFF[]` (retrait).
 2. Passer `DIAG_LIMIT_ENABLE` à `1` dans `config.h` (le CAN passe alors en mode
    normal pour pouvoir émettre).
@@ -75,5 +75,5 @@ Points d'attention repérés à la capture :
 
 Depuis le tableau de bord, bouton **« Brider la vitesse »** par jet-ski. La
 consigne descend par la 4G/MQTT (comme les autres), et le boîtier envoie la
-commande de diagnostic à l'ECM. Tant que `diag_commands.h` est vide, rien n'est
+commande de diagnostic à l'ECM. Tant que les séquences du profil sont vides, rien n'est
 émis : le cadre est prêt, il attend la capture.

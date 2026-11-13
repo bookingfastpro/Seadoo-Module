@@ -23,10 +23,10 @@
 #include "esp_sleep.h"
 
 #include "config.h"
-#include "can_signals.h"
+#include "profile_types.h"
+#include VEHICLE_PROFILE        // décodage CAN + bridage du modèle de CE boîtier
 #include "collision.h"
 #include "throttle.h"
-#include "diag_commands.h"
 
 #if COLLISION_ENABLE
 #include <WiFi.h>
@@ -738,7 +738,8 @@ void setup() {
   Serial.begin(115200);
   pinMode(LED_PIN, OUTPUT);
   delay(200);
-  Serial.printf("\nBoitier Sea-Doo [%s]\n", DEVICE_ID);
+  Serial.printf("\nBoitier [%s] - %s %s %s (profil : %s)\n", DEVICE_ID, VEHICLE_MAKE, VEHICLE_MODEL,
+                VEHICLE_YEAR, PROFILE_NAME);
 
   prefs.begin("seadoo", false);
   inhibitWanted = prefs.getBool("inhibit_w", false);

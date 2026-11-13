@@ -87,7 +87,7 @@ Méthode :
 
 ## 2.5 Reporter dans le firmware
 
-Remplir `firmware/include/can_signals.h`. Exemple fictif : régime sur l'ID
+Remplir le profil du modèle (`firmware/include/profiles/<modèle>.h`, ex. `profiles/gtx-2023.h`). Exemple fictif : régime sur l'ID
 `0x102`, octets 2-3, gros-boutiste, valeur brute = tr/min × 4 :
 
 ```cpp
@@ -106,7 +106,7 @@ Tableau de résultats à tenir :
 | … | | | | | | |
 
 Si les deux jet-skis ont des identifiants différents, chaque boîtier est flashé
-avec son propre `can_signals.h`.
+avec son propre profil (`profiles/<modèle>.h`).
 
 Les fichiers de relevé peuvent être déposés dans ce dépôt (dossier `releves/`)
 pour être analysés ensemble.

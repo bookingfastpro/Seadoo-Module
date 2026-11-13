@@ -17,10 +17,14 @@ Choisir une clé longue et aléatoire par boîtier (`openssl rand -hex 24`), pui
 dans le SQL Editor :
 
 ```sql
-insert into public.devices (id, name, key_hash) values
-  ('gtx-2023', 'GTX 2023', encode(digest('CLE-DU-BOITIER-1', 'sha256'), 'hex')),
-  ('gtx-2026', 'GTX 2026', encode(digest('CLE-DU-BOITIER-2', 'sha256'), 'hex'));
+insert into public.devices (id, name, key_hash, vehicle_make, vehicle_model, vehicle_year, firmware_profile) values
+  ('gtx-2023', 'GTX 2023', encode(digest('CLE-DU-BOITIER-1', 'sha256'), 'hex'), 'Sea-Doo', 'GTX', '2023', 'profiles/gtx-2023.h'),
+  ('gtx-2026', 'GTX 2026', encode(digest('CLE-DU-BOITIER-2', 'sha256'), 'hex'), 'Sea-Doo', 'GTX', '2026', 'profiles/gtx-2026.h');
 ```
+
+Depuis le tableau de bord, « Ajouter un module » fait la même chose en demandant
+le véhicule (type, marque, modèle, année) : il en déduit le **profil firmware**
+à flasher sur ce module.
 
 Seule l'empreinte de la clé est stockée. La clé en clair va dans le `config.h`
 du boîtier correspondant (`DEVICE_ID` et `DEVICE_KEY`).

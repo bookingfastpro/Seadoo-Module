@@ -34,6 +34,7 @@ Aucun code ni service d'un fabricant tiers n'est repris.
 | Dossier | Rôle |
 |---|---|
 | `firmware/` | Programme du boîtier (ESP32, PlatformIO) |
+| `firmware/include/profiles/` | Profils par modèle (décodage CAN + bridage) |
 | `backend/supabase/` | Base de données + fonction qui reçoit les données |
 | `dashboard/` | Tableau de bord web (carte, état, commandes) |
 | `tools/can_analyze.py` | Outil pour décoder le bus CAN |

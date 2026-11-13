@@ -2,9 +2,18 @@
 // config.h est ignore par git : vos cles ne partent pas sur GitHub.
 #pragma once
 
-// ---------- Identite du boitier (un config.h par jet-ski) ----------
+// ---------- Identite du boitier (un config.h par vehicule) ----------
 #define DEVICE_ID   "gtx-2023"                 // doit exister dans la table "devices"
 #define DEVICE_KEY  "CHANGER-MOI-cle-longue-aleatoire"
+
+// ---------- Vehicule (determine le PROFIL a charger) ----------
+// Chaque modele a son decodage CAN et sa commande de bridage, dans profiles/.
+// Choisir le fichier correspondant au vehicule de CE boitier.
+#define VEHICLE_TYPE    "jetski"               // jetski | boat | ...
+#define VEHICLE_MAKE    "Sea-Doo"
+#define VEHICLE_MODEL   "GTX"
+#define VEHICLE_YEAR    "2023"
+#define VEHICLE_PROFILE "profiles/gtx-2023.h"  // ex. profiles/gtx-2026.h pour le 2026
 
 // ---------- Reseau ----------
 #define APN         "iot.1nce.net"             // APN de votre carte SIM M2M
