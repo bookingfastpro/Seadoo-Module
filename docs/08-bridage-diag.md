@@ -13,22 +13,35 @@ l'applique lui-même, le jet-ski reste contrôlable sous la limite.
 
 La commande exacte qui active la limite est propre à BRP et peut varier selon le
 modèle/année. Une mauvaise trame de diagnostic pourrait écrire un autre réglage.
-On la **capture** donc en espionnant BUDS2, qui sait déjà le faire.
+On la **capture** donc en espionnant un appareil qui sait déjà brider, sur ton
+propre jet-ski — sans l'ouvrir, en regardant ce qu'il envoie sur le bus.
 
-## Capturer la commande avec BUDS2
+## Méthode recommandée : capturer l'OtoTrak
 
-Matériel : boîtier en **mode sniffer** (`SNIFFER_MODE 1`), branché en **Y** sur la
-prise diag en même temps que l'interface BUDS2 (carte SD insérée).
+C'est la plus fiable, car l'OtoTrak fait déjà exactement ce qu'on veut, par le
+diag. On enregistre le bus pendant qu'il bride. (Le V800/BUDS n'expose en général
+pas de bridage « en direct » — il bride via la clé d'apprentissage — donc on
+préfère capturer l'OtoTrak.)
 
-1. **Enregistrement A (repos)** : BUDS2 connecté, lecture seule, ne rien changer,
-   ~30 s. → fichier `can_000.csv` par ex.
-2. Couper/rallumer le boîtier pour ouvrir un nouveau fichier.
-3. **Enregistrement B (activation)** : dans BUDS2, **active la limite de vitesse**
-   (ou le mode vitesse réduite). → `can_001.csv`.
-4. Nouveau fichier, puis **Enregistrement C (retrait)** : dans BUDS2, **enlève la
-   limite**. → `can_002.csv`.
+Matériel : boîtier en **mode sniffer** (`SNIFFER_MODE 1`), tapé sur le CAN (CAN-H,
+CAN-L, masse) sur le jet-ski **équipé de l'OtoTrak**, carte SD insérée.
 
-Note l'heure exacte de chaque action.
+1. **Enregistrement A (repos)** : OtoTrak actif, **sans** limite, ~30 s.
+2. Couper/rallumer le boîtier (nouveau fichier).
+3. **Enregistrement B (activation)** : depuis l'**appli OtoTrak**, **active la
+   limite de vitesse**. Continue d'enregistrer ~30 s — pour voir si la commande est
+   envoyée **une fois** ou **répétée en continu** (session maintenue).
+4. Nouveau fichier. **Enregistrement C (retrait)** : depuis l'appli, **retire la
+   limite**.
+
+Note l'heure exacte de chaque action. On ne copie pas le logiciel de l'OtoTrak :
+on observe seulement les trames qu'il envoie à l'ECM de ton jet-ski.
+
+## Autre source : la clé d'apprentissage (BUDS)
+
+Si tu veux comparer, tu peux aussi enregistrer pendant que tu **programmes une clé
+d'apprentissage** dans BUDS (c'est le bridage d'origine BRP). Même principe :
+un fichier avant, un pendant la programmation.
 
 ## Isoler la commande
 
