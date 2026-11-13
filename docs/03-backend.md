@@ -6,7 +6,13 @@ jet-skis). Trois éléments : la base, la fonction `ingest`, le tableau de bord.
 ## 3.1 Créer le projet et la base
 
 1. Créer un projet sur supabase.com (région Europe).
-2. SQL Editor → coller et exécuter `backend/supabase/migrations/001_init.sql`.
+2. SQL Editor → coller et exécuter `backend/supabase/migrations/001_init.sql`,
+   puis `backend/supabase/migrations/002_vehicle_catalog.sql` (catalogue des
+   véhicules supportés + rôle super-admin).
+   - Pour devenir super-admin : Authentication → Users → copie ton `user id`, puis
+     dans le SQL Editor : `insert into public.admins (user_id) values ('TON-UUID');`
+   - Le catalogue démarre avec les deux GTX ; un super-admin y ajoute d'autres
+     modèles (bateaux, etc.) depuis le tableau de bord (écran « Catalogue »).
 3. Authentication → Users → **Add user** : votre e-mail + mot de passe. C'est
    le compte du tableau de bord. Désactiver ensuite les inscriptions publiques
    (Authentication → Sign In / Providers → décocher « Allow new users to sign up »).
