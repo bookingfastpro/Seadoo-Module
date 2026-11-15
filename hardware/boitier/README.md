@@ -1,9 +1,11 @@
 # Boîtier imprimé 3D
 
+![Aperçu](apercu.png)
+
 Fichiers prêts à imprimer :
 
-- `boitier_fond.stl` (178 × 148 × 56 mm, pattes comprises)
-- `boitier_couvercle.stl` (178 × 110 × 7 mm, s'imprime face extérieure sur le plateau)
+- `boitier_fond.stl` (178 × 110 × 56 mm)
+- `boitier_couvercle.stl` (178 × 110 × 8,2 mm, s'imprime face extérieure sur le plateau)
 
 Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boitier.py`, puis de relancer
 `python3 boitier.py` (dépendances : `pip install manifold3d trimesh numpy`).
@@ -19,7 +21,6 @@ Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boiti
 | Buzzer actif Ø12 | logement sur la paroi opposée, paroi amincie à 1 mm devant (le son passe, l'eau non) |
 | Étanchéité | gorge pour cordon silicone Ø2 mm, vis placées à l'extérieur du joint |
 | Fixation couvercle | 6 inserts laiton M3 (trou Ø4) dans la collerette + vis M3 × 10 |
-| Fixation coque | 4 pattes avec fente pour vis M5 |
 
 ## À acheter en plus
 

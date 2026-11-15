@@ -17,7 +17,7 @@ from manifold3d import Manifold, CrossSection, JoinType
 L, W, H = 150.0, 82.0, 53.0   # volume intérieur utile (long., larg., haut. sous couvercle)
 WALL = 3.0                    # épaisseur parois
 FLOOR = 3.0                   # épaisseur fond
-R_IN = 3.0                    # rayon des angles intérieurs
+R_IN = 8.0                    # rayon des angles intérieurs (angles bien arrondis)
 
 FLANGE_OUT = 11.0             # débord de la collerette au-dessus de la paroi
 FLANGE_T = 6.0                # épaisseur collerette (reçoit les inserts)
@@ -40,11 +40,15 @@ LIP_T, LIP_H, LIP_GAP = 1.6, 4.0, 0.4   # lèvre de centrage sous le couvercle
 DT_CUT, DT_CUT_R = 25.4, 6.35
 DT_HOLE_D, DT_HOLES_DX, DT_HOLES_DZ = 4.32, 45.01, 24.00
 DT_FLANGE_W, DT_FLANGE_H = 54.99, 35.51
-DT_Y, DT_Z = 50.0, 20.0       # centre de l'embase (Y le long de la paroi, Z hauteur)
+DT_Y, DT_Z = 41.0, 20.0       # centre de l'embase (Y le long de la paroi, Z hauteur)
 
-# Pattes de fixation coque (vis M5)
-EAR_LEN, EAR_W, EAR_T, EAR_SLOT = 30.0, 16.0, 5.0, 5.5
-EARS_X = [22.0, L - 22.0]
+# Design
+BOTTOM_CHAMFER = 2.0          # chanfrein sur l'arête du dessous
+JOINT_CHAMFER = 1.0           # chanfreins de part et d'autre du plan de joint (ligne en V)
+LID_EDGE_CHAMFER = 1.5        # chanfrein sur l'arête du dessus du couvercle
+PANEL_INSET, PANEL_H = 6.0, 1.2   # plateau en relief sur le couvercle
+DECO_GROOVES_Z = [12.0, 17.0]     # lignes décoratives gravées sur 3 faces (pas sur la face Deutsch)
+DECO_W, DECO_D = 1.2, 0.6
 
 # Carte LilyGO T-SIM7600G-H : 111 x 33 x 20 mm (avec support 18650)
 BOARD_L, BOARD_W = 111.0, 33.0
@@ -94,16 +98,32 @@ def screw_points():
 
 def make_base():
     zt = FLOOR + H                                     # haut du fond (plan de joint)
-    outer = rrect(L + 2 * WALL, W + 2 * WALL, R_IN + WALL).extrude(zt)
+    Lo, Wo, Ro = L + 2 * WALL, W + 2 * WALL, R_IN + WALL
+    c = BOTTOM_CHAMFER
+    outer = Manifold.batch_hull([
+        rrect(Lo - 2 * c, Wo - 2 * c, Ro - c).extrude(0.01),
+        rrect(Lo, Wo, Ro).extrude(0.01).translate((0, 0, c)),
+    ]) + rrect(Lo, Wo, Ro).extrude(zt - c).translate((0, 0, c))
     inner = rrect(L, W, R_IN).extrude(zt + 1).translate((0, 0, FLOOR))
     fl = FLANGE_OUT + WALL
-    flange = rrect(L + 2 * fl, W + 2 * fl, R_IN + fl).extrude(FLANGE_T).translate((0, 0, zt - FLANGE_T))
+    j = JOINT_CHAMFER
+    flange = Manifold.batch_hull([
+        rrect(L + 2 * fl, W + 2 * fl, R_IN + fl).extrude(FLANGE_T - j).translate((0, 0, zt - FLANGE_T)),
+        rrect(L + 2 * (fl - j), W + 2 * (fl - j), R_IN + fl - j).extrude(0.01).translate((0, 0, zt - 0.01)),
+    ])
     # chanfrein à 45° sous la collerette (imprimable sans support)
     cham = Manifold.batch_hull([
         rrect(L + 2 * WALL, W + 2 * WALL, R_IN + WALL).extrude(0.01).translate((0, 0, zt - FLANGE_T - FLANGE_OUT)),
         rrect(L + 2 * fl, W + 2 * fl, R_IN + fl).extrude(0.01).translate((0, 0, zt - FLANGE_T)),
     ])
     body = outer + flange + cham - inner
+
+    # lignes décoratives : 2 gorges horizontales, sauf sur la face de l'embase (qui doit rester plane)
+    keep = box(L + 2 * WALL + 10, W + 2 * WALL + 10, 50).translate((-L / 2 + R_IN, -(W + 2 * WALL + 10) / 2, 0))
+    for zg in DECO_GROOVES_Z:
+        band = (rrect(Lo + 2, Wo + 2, Ro + 1) - rrect(Lo - 2 * DECO_D, Wo - 2 * DECO_D, Ro - DECO_D)) \
+            .extrude(DECO_W).translate((0, 0, zg - DECO_W / 2))
+        body -= band ^ keep
 
     # gorge de joint
     a = ring_path(GROOVE_POS + GROOVE_W / 2)
@@ -152,26 +172,26 @@ def make_base():
         body += tie_anchor(xc, zone_y + 1)
         body += tie_anchor(xc, W - 5)
 
-    # pattes de fixation coque (sur les grands côtés, au ras du fond)
-    for ex in EARS_X:
-        for side in (-1, 1):
-            ear = rrect(EAR_W, EAR_LEN + WALL, 4).extrude(EAR_T)
-            slot = Manifold.batch_hull([
-                cyl(EAR_T + 2, EAR_SLOT).translate((0, -3, -1)),
-                cyl(EAR_T + 2, EAR_SLOT).translate((0, 3, -1)),
-            ])
-            ear -= slot.translate((0, 6, 0))
-            if side < 0:
-                ear = ear.mirror((0, 1, 0))
-            yoff = side * (W / 2 + (EAR_LEN + WALL) / 2)
-            body += ear.translate((ex - L / 2, yoff, 0))
-
     return body
 
 
 def make_lid():
     fl = FLANGE_OUT + WALL
-    plate = rrect(L + 2 * fl, W + 2 * fl, R_IN + fl).extrude(LID_T)
+    j, e = JOINT_CHAMFER, LID_EDGE_CHAMFER
+
+    def ring(off, z0, h=0.01):
+        return rrect(L + 2 * off, W + 2 * off, R_IN + off).extrude(h).translate((0, 0, z0))
+
+    # plaque : chanfrein bas (ligne de joint en V) + chanfrein haut
+    plate = Manifold.batch_hull([ring(fl - j, 0), ring(fl, j, LID_T - j - e), ring(fl - e, LID_T - 0.01)])
+    # plateau central en relief, flancs à 45°
+    px, py = L - 2 * PANEL_INSET, W - 2 * PANEL_INSET
+    pr = max(R_IN - PANEL_INSET + 4, 2)
+    panel = Manifold.batch_hull([
+        rrect(px, py, pr).extrude(0.01).translate((0, 0, LID_T - 0.01)),
+        rrect(px - 2 * PANEL_H, py - 2 * PANEL_H, pr - PANEL_H).extrude(0.01).translate((0, 0, LID_T + PANEL_H - 0.01)),
+    ])
+    plate += panel
     for (x, y) in screw_points():
         plate -= cyl(LID_T + 2, SCREW_D).translate((x, y, -1))
         # lamage pour tête de vis M3 (Ø6, prof. 1.5)
@@ -183,15 +203,21 @@ def make_lid():
     lid = plate + lip
     # repère "GPS ↑" : simple flèche gravée côté extérieur
     arrow = CrossSection.hull_points([(0, 10), (-7, 0), (7, 0)]) + CrossSection.square((5, 10)).translate((-2.5, -10))
-    lid -= arrow.extrude(0.8).translate((-L / 2 + 30, 0, LID_T - 0.6))
+    lid -= arrow.extrude(1.0).translate((-L / 2 + 30, 0, LID_T + PANEL_H - 0.6))
+    # 3 bandes obliques gravées sur le plateau (côté opposé à la flèche)
+    for i in range(3):
+        x0 = L / 2 - 34 + i * 8
+        stripe = CrossSection.hull_points([(x0, -py / 2 + 6), (x0 + 4, -py / 2 + 6),
+                                           (x0 + 4 + 14, py / 2 - 6), (x0 + 14, py / 2 - 6)])
+        lid -= stripe.extrude(1.0).translate((0, 0, LID_T + PANEL_H - 0.6))
     # le couvercle s'imprime face extérieure en bas : on le retourne
-    return lid.rotate((180, 0, 0)).translate((0, 0, LID_T))
+    return lid.rotate((180, 0, 0)).translate((0, 0, LID_T + PANEL_H))
 
 
 def export(man, path):
     mesh = man.to_mesh()
     tm = trimesh.Trimesh(vertices=np.asarray(mesh.vert_properties)[:, :3],
-                         faces=np.asarray(mesh.tri_verts), process=True)
+                         faces=np.asarray(mesh.tri_verts), process=False)
     tm.export(path)
     ext = tm.bounds[1] - tm.bounds[0]
     print(f"{path}: {ext[0]:.1f} x {ext[1]:.1f} x {ext[2]:.1f} mm, "
