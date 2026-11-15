@@ -10,7 +10,16 @@ Fichiers prêts à imprimer :
 Fermé : environ 178 × 54 × 42 mm (contre 178 × 110 × 64 mm pour la première version).
 
 Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boitier.py`, puis de relancer
-`python3 boitier.py` (dépendances : `pip install manifold3d trimesh numpy`).
+`python3 boitier.py` (dépendances : `pip install manifold3d trimesh numpy matplotlib`).
+
+## Marquage du couvercle
+
+![Marquage](couvercle_marquage.png)
+
+« **NAUTIX** » (capitales de 12 mm) avec « *by WinO* » en dessous (4,8 mm), gravés sur 0,6 mm de profondeur au centre
+du plateau, entre la flèche GPS et les bandes. Police Poppins Bold (DejaVu Sans si elle n'est pas installée).
+Les textes et tailles se changent avec `BRAND`, `SIGN`, `BRAND_H`, `SIGN_H` dans `boitier.py`.
+Astuce : imprimer le couvercle en deux couleurs (changement de filament à 0,6 mm) pour faire ressortir le logo.
 
 ## Implantation
 

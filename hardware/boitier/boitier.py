@@ -65,8 +65,30 @@ PANEL_INSET, PANEL_H = 5.0, 1.0
 DECO_GROOVES_Z = [12.0, 17.0]
 DECO_W, DECO_D = 1.2, 0.6
 
+# Marquage gravé sur le couvercle (police Poppins si installée, sinon DejaVu Sans)
+BRAND, BRAND_H = "NAUTIX", 12.0         # hauteur des capitales
+SIGN, SIGN_H = "by WinO", 4.8
+BRAND_X = -2.0                          # centre du bloc texte le long du couvercle
+ENGRAVE_D = 0.6
+
 SEG = 64
 # ---------------------------------------------------------------------------
+
+
+def text_section(txt, cap_h, font="Poppins-Bold.ttf", fallback_weight="bold", style="normal"):
+    """Contour 2D d'un texte, centré en (0, 0), hauteur des capitales = cap_h."""
+    import os
+    from matplotlib.textpath import TextPath
+    from matplotlib.font_manager import FontProperties
+    path = os.path.join("/usr/share/fonts/truetype/google-fonts", font)
+    fp = FontProperties(fname=path) if os.path.exists(path) else \
+        FontProperties(family="DejaVu Sans", weight=fallback_weight, style=style)
+    cap = TextPath((0, 0), "H", size=100, prop=fp).get_extents().height
+    tp = TextPath((0, 0), txt, size=100 * cap_h / cap, prop=fp)
+    polys = [p[:-1] for p in tp.to_polygons(closed_only=True) if len(p) > 3]
+    cs = CrossSection(polys, fillrule=__import__("manifold3d").FillRule.EvenOdd)
+    b = cs.bounds()
+    return cs.translate((-(b[0] + b[2]) / 2, -(b[1] + b[3]) / 2))
 
 
 def rrect(lx, ly, r):
@@ -188,6 +210,20 @@ def make_lid():
         s = CrossSection.hull_points([(x0, -py / 2 + 4), (x0 + 3, -py / 2 + 4),
                                       (x0 + 3 + 9, py / 2 - 4), (x0 + 9, py / 2 - 4)])
         lid -= s.extrude(1.0).translate((0, 0, top - 0.6))
+    # marquage « NAUTIX » + signature « by WinO » dessous, gravés au centre du plateau
+    gap = 2.2
+    brand = text_section(BRAND, BRAND_H)
+    sign = text_section(SIGN, SIGN_H, font="Poppins-BoldItalic.ttf", style="italic")
+    bh = brand.bounds()[3] - brand.bounds()[1]
+    sh = sign.bounds()[3] - sign.bounds()[1]
+    y0 = (bh + gap + sh) / 2
+    bw = brand.bounds()[2] - brand.bounds()[0]
+    sw = sign.bounds()[2] - sign.bounds()[0]
+    marks = brand.translate((BRAND_X, y0 - bh / 2)) + \
+        sign.translate((BRAND_X + bw / 2 - sw / 2, y0 - bh - gap - sh / 2))   # calée à droite sous NAUTIX
+    b = marks.bounds()
+    assert b[0] > -L / 2 + 30 and b[2] < L / 2 - 32 and b[3] - b[1] < py - 2 * PANEL_H - 2, "texte trop grand"
+    lid -= marks.extrude(ENGRAVE_D + 0.4).translate((0, 0, top - ENGRAVE_D))
     return lid.rotate((180, 0, 0)).translate((0, 0, top))
 
 
