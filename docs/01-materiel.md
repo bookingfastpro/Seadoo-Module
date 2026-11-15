@@ -11,11 +11,12 @@ doubler pour équiper les deux GTX.
 | Antennes LTE + GPS | fournies avec la carte en général ; sinon antennes adhésives u.FL | 0–10 € |
 | Transceiver CAN 3,3 V | module **SN65HVD230** (ou TJA1051T/3) | 3–5 € |
 | Convertisseur 12 V → 5 V | module buck 3 A étanche/encapsulé (entrée 8–32 V) | 6–10 € |
-| Porte-fusible en ligne + fusible 2 A | type automobile mini | 4 € |
+| Accu Li-ion 18650 | cellule de marque 3000–3500 mAh (Samsung, LG, Molicel…), pas de « 9900 mAh » sans marque | 6–10 € |
+| Porte-fusible en ligne + fusible 1 A | type automobile mini, côté boîtier | 4 € |
 | Carte microSD | 8–32 Go, pour les relevés CAN | 6 € |
 | Carte SIM data M2M | 1NCE, Things Mobile, Emnify… | env. 10–15 € |
-| Boîtier étanche | IP67, environ 120 × 80 × 55 mm, + presse-étoupe PG7 | 10–15 € |
-| Connecteur prise diagnostic | Deutsch DT 6 voies (vérifier mâle/femelle sur le jet-ski) + contacts | 8–12 € |
+| Boîtier étanche | imprimé 3D (`hardware/boitier/`) ou IP67 du commerce | 10–15 € |
+| Connecteur prise diagnostic | embase Deutsch DT04-6P-L012 sur le boîtier + rallonge DT06-6S ↔ prise du jet-ski (vérifier le genre) | 15–25 € |
 | Vernis de tropicalisation | bombe pour circuits imprimés | 10 € (pour tous) |
 | Buzzer actif 5 V (alerte anti-collision) | « active buzzer 5V » (celui qui sonne seul sous tension) | 2 € |
 | Optionnel : GPS rapide 5-10 Hz | module u-blox **NEO-M9N** (meilleure anticipation de collision) | 15-25 € |
@@ -28,8 +29,10 @@ cosses pré-serties).
 ## Câblage
 
 ```
-Batterie 12 V (+) ──[fusible 2 A]── buck IN+        buck OUT+ (5 V) ── carte : broche 5V / VIN
-Batterie 12 V (−) ───────────────── buck IN−        buck OUT− ──────── carte : GND
+Prise diag +12 V ──[fusible 1 A]── buck IN+        buck OUT+ (5 V) ── carte : connecteur SOLAIRE (+)
+Prise diag masse ────────────────── buck IN−        buck OUT− ──────── carte : connecteur SOLAIRE (−)
+
+Accu 18650 dans le support au dos de la carte, interrupteur de la carte sur ON.
 
 Transceiver CAN          Carte LilyGO
    3V3  ───────────────── 3V3
@@ -57,16 +60,31 @@ Points importants :
   prendre deux autres GPIO libres et modifier `CAN_TX_PIN` / `CAN_RX_PIN` dans
   `config.h`.
 - Masse commune obligatoire entre le boîtier et le jet-ski.
-- Alimenter depuis la batterie (via fusible) et non depuis un 12 V commuté,
-  sinon plus de suivi quand le jet-ski est éteint.
+- **Alimentation par la prise diagnostic.** Sur les BRP, son +12 V n'est présent
+  que jet-ski réveillé (BRP vend d'ailleurs une interface pour garder l'outil
+  alimenté contact coupé). Le boîtier vit donc sur son **accu 18650** :
+  - jet-ski en marche : le buck charge l'accu par l'entrée solaire de la carte
+    (4,4–6 V, c'est ce que conseille LilyGO pour une alimentation 5 V) ;
+  - jet-ski coupé : l'accu prend le relais, le suivi continue.
+- **Fusible 1 A côté boîtier** : ce +12 V alimente aussi l'ECU. Un court-circuit
+  dans le boîtier doit faire sauter notre fusible, pas celui du jet-ski.
+- Repérer au multimètre quelle broche porte le +12 V et la masse (doc 02) :
+  le brochage des GTX 2023/2026 n'est pas confirmé.
+- Sur cette carte, le pont diviseur de mesure de l'accu est câblé sur GPIO 35,
+  déjà utilisé par `THROTTLE_IN_PIN` (option servo, désactivée par défaut) :
+  changer cette broche avant d'activer l'option.
 
 ## Consommation et batterie
 
-Jet-ski éteint, le boîtier dort et se réveille toutes les 30 minutes (réglable)
-pour donner sa position. Le courant en sommeil dépend de la carte et du
-convertisseur : **le mesurer au multimètre** une fois monté. Viser moins de
-5 mA ; au-delà, choisir un buck à faible courant de repos. Pour un hivernage
-long, débrancher le boîtier ou garder la batterie sur mainteneur de charge.
+Jet-ski éteint, le boîtier tourne sur l'accu 18650 : il dort et se réveille
+toutes les 30 minutes (réglable) pour donner sa position. Il ne tire plus rien
+sur la batterie du jet-ski. L'autonomie dépend du courant en sommeil et du
+nombre de réveils : **la mesurer** (relever la tension de l'accu sur quelques
+jours). Espacer les réveils pour tenir plus longtemps.
+
+- Accu Li-ion : éviter de laisser le jet-ski en plein soleil bâché sur de longues
+  périodes (au-delà de 60 °C dans la coque, l'accu vieillit vite).
+- Hivernage : retirer l'accu ou mettre l'interrupteur de la carte sur OFF.
 
 ## Volume de données
 
