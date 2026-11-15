@@ -34,6 +34,15 @@ Prise diag masse ────────────────── buck IN�
 
 Accu 18650 dans le support au dos de la carte, interrupteur de la carte sur ON.
 
+Embase DT04-6P du boîtier (brochage choisi par nous)
+   1  CAN-H   → transceiver CANH
+   2  CAN-L   → transceiver CANL
+   3  Masse   → masse commune (buck IN−, transceiver GND, carte GND)
+   4  +12 V   → fusible 1 A → buck IN+
+   5-6        libres
+La rallonge (DT06-6S côté boîtier) fait la correspondance avec la prise du jet-ski,
+dont le brochage reste à relever au multimètre (doc 02).
+
 Transceiver CAN          Carte LilyGO
    3V3  ───────────────── 3V3
    GND  ───────────────── GND
