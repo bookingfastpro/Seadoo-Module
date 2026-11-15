@@ -14,13 +14,13 @@ import trimesh
 from manifold3d import Manifold, CrossSection, JoinType
 
 # ---------------------------------------------------------------- PARAMÈTRES
-L, W, H = 140.0, 82.0, 36.0   # volume intérieur utile (long., larg., haut. sous couvercle)
+L, W, H = 150.0, 82.0, 53.0   # volume intérieur utile (long., larg., haut. sous couvercle)
 WALL = 3.0                    # épaisseur parois
 FLOOR = 3.0                   # épaisseur fond
 R_IN = 3.0                    # rayon des angles intérieurs
 
 FLANGE_OUT = 11.0             # débord de la collerette au-dessus de la paroi
-FLANGE_T = 7.0                # épaisseur collerette (reçoit les inserts)
+FLANGE_T = 6.0                # épaisseur collerette (reçoit les inserts)
 
 # Joint : cordon silicone Ø2 mm dans une gorge du fond
 GROOVE_W, GROOVE_D = 2.4, 1.5
@@ -34,10 +34,17 @@ SCREW_POS = 10.0              # axe des vis, depuis le bord intérieur (hors joi
 LID_T = 3.0                   # épaisseur couvercle
 LIP_T, LIP_H, LIP_GAP = 1.6, 4.0, 0.4   # lèvre de centrage sous le couvercle
 
-# Presse-étoupe PG7 (filetage Ø12.5) sur la paroi X=0
+# Embase Deutsch DT04-6P-L012 sur la paroi X=0 (plan TE 0425-017-0000, feuille 2)
+#   découpe recommandée 25.40 x 25.40 mm, rayons R6.35 ; 4 trous Ø4.32 à 45.01 x 24.00 mm entraxe
+#   collerette 54.99 x 35.51 x 3.71 mm ; corps derrière la collerette 20.65 mm ; se branche sur une fiche DT06-6S
+DT_CUT, DT_CUT_R = 25.4, 6.35
+DT_HOLE_D, DT_HOLES_DX, DT_HOLES_DZ = 4.32, 45.01, 24.00
+DT_FLANGE_W, DT_FLANGE_H = 54.99, 35.51
+DT_Y, DT_Z = 50.0, 20.0       # centre de l'embase (Y le long de la paroi, Z hauteur)
+
+# Presse-étoupe PG7 de réserve (relais / servo) : filetage Ø12.5, perçage 12.5-12.7
 PG7_D = 12.7
-GLANDS_Y = [20.0, 62.0]       # position des presse-étoupe en Y
-GLAND_Z = FLOOR + 14.0
+GLAND_X, GLAND_Z = 14.0, 30.0   # sur la grande paroi Y=W
 
 # Pattes de fixation coque (vis M5)
 EAR_LEN, EAR_W, EAR_T, EAR_SLOT = 30.0, 16.0, 5.0, 5.5
@@ -45,7 +52,7 @@ EARS_X = [22.0, L - 22.0]
 
 # Carte LilyGO T-SIM7600G-H : 111 x 33 x 20 mm (avec support 18650)
 BOARD_L, BOARD_W = 111.0, 33.0
-BOARD_X0, BOARD_Y0 = 25.0, 9.0   # coin de la carte (zone libre X<25 = câbles + USB)
+BOARD_X0, BOARD_Y0 = 36.0, 9.0   # coin de la carte (zone libre X<36 = arrière de l'embase DT)
 
 # Buzzer actif Ø12 mm sur la paroi X=L, membrane amincie devant
 BUZ_D, BUZ_Y, BUZ_Z = 12.0, 68.0, FLOOR + 12.0
@@ -112,10 +119,17 @@ def make_base():
     for (x, y) in screw_points():
         body -= cyl(FLANGE_T + FLANGE_OUT + 1, INSERT_D).translate((x, y, zt - FLANGE_T - FLANGE_OUT - 0.5))
 
-    # presse-étoupe PG7 (paroi X=0) + lamage plat extérieur
-    for gy in GLANDS_Y:
-        x, y, z = at(0, gy, GLAND_Z)
-        body -= cyl(WALL * 4, PG7_D, center=True).rotate((0, 90, 0)).translate((x, y, z))
+    # embase Deutsch DT (paroi X=0) : découpe carrée arrondie + 4 trous de fixation
+    x, y, z = at(0, DT_Y, DT_Z)
+    cut = rrect(DT_CUT, DT_CUT, DT_CUT_R).extrude(WALL * 4).translate((0, 0, -WALL * 2))
+    body -= cut.rotate((0, 90, 0)).translate((x, y, z))
+    for dy in (-DT_HOLES_DX / 2, DT_HOLES_DX / 2):
+        for dz in (-DT_HOLES_DZ / 2, DT_HOLES_DZ / 2):
+            body -= cyl(WALL * 4, DT_HOLE_D, center=True).rotate((0, 90, 0)).translate((x, y + dy, z + dz))
+
+    # presse-étoupe PG7 de réserve (grande paroi Y=W)
+    x, y, z = at(GLAND_X, W, GLAND_Z)
+    body -= cyl(WALL * 4, PG7_D, center=True).rotate((90, 0, 0)).translate((x, y, z))
 
     # buzzer : logement + membrane amincie (paroi X=L)
     x, y, z = at(L, BUZ_Y, BUZ_Z)
@@ -142,7 +156,7 @@ def make_base():
         body += tie_anchor(xc, BOARD_Y0 - 4.5)
         body += tie_anchor(xc, BOARD_Y0 + BOARD_W + 4.5)
     zone_y = BOARD_Y0 + BOARD_W + 9                               # bande convertisseur + CAN
-    for xc in (60, 100):
+    for xc in (70, 110):
         body += tie_anchor(xc, zone_y + 1)
         body += tie_anchor(xc, W - 5)
 
@@ -193,6 +207,14 @@ def export(man, path):
     return tm
 
 
+def check():
+    flat_top = FLOOR + H - FLANGE_T - FLANGE_OUT        # début du chanfrein sous la collerette
+    assert DT_Z + DT_FLANGE_H / 2 < flat_top, "collerette DT trop haute"
+    assert DT_Z - DT_FLANGE_H / 2 > 0, "collerette DT sous le fond"
+    assert DT_Y - DT_FLANGE_W / 2 > R_IN and DT_Y + DT_FLANGE_W / 2 < W - R_IN, "collerette DT hors du plat"
+
+
 if __name__ == "__main__":
+    check()
     export(make_base(), "boitier_fond.stl")
     export(make_lid(), "boitier_couvercle.stl")
