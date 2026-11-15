@@ -4,8 +4,10 @@
 
 Fichiers prêts à imprimer :
 
-- `boitier_fond.stl` : 174 × 54 × 30 mm hors tout
-- `boitier_couvercle.stl` : 174 × 54 × 7 mm, s'imprime face extérieure sur le plateau
+- `boitier_fond.stl` : 178 × 54 × 38 mm hors tout
+- `boitier_couvercle.stl` : 178 × 54 × 7 mm, s'imprime face extérieure sur le plateau
+
+Fermé : environ 178 × 54 × 42 mm (contre 178 × 110 × 64 mm pour la première version).
 
 Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boitier.py`, puis de relancer
 `python3 boitier.py` (dépendances : `pip install manifold3d trimesh numpy`).
@@ -14,42 +16,38 @@ Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boiti
 
 | Zone (dans la longueur) | Contenu |
 |---|---|
-| 0–24 mm | arrière de l'embase M12 + fils |
-| 24–136 mm | carte LilyGO T-SIM7600G-H (111 × 33 × 20 mm, accu 18650 dessous), calée par butées et nervures |
-| 136–156 mm | buck Pololu D24V22F5 + module CAN SN65HVD230, à plat (adhésif VHB), buzzer Ø12 au-dessus |
+| 0–20 mm | buck Pololu D24V22F5 + module CAN SN65HVD230 à plat (adhésif VHB), buzzer Ø12 au-dessus |
+| 20–48 mm | arrière de l'embase Deutsch + fusible |
+| 48–160 mm | carte LilyGO T-SIM7600G-H (111 × 33 × 20 mm, accu 18650 dessous), calée par butées et nervures |
 
-Volume intérieur 156 × 36 × 28 mm. Antenne GPS et antenne LTE collées sous le couvercle (flèche gravée = côté ciel).
+Volume intérieur 160 × 36 × 35,5 mm. Antennes GPS et LTE collées sous le couvercle (flèche gravée = côté ciel).
 
-## Ce qui a changé par rapport à la première version
+## Prise 6 broches
 
-| Avant | Maintenant | Pourquoi |
-|---|---|---|
-| Embase Deutsch DT04-6P-L012 (collerette 55 × 35,5 mm) | Embase **M12 5 broches codage A**, filetage PG9 | la collerette Deutsch imposait 53 mm de hauteur intérieure ; le M12 ne demande qu'un trou de 15,4 mm |
-| Buck encapsulé ~46 × 27 mm | **Pololu D24V22F5** 17,8 × 17,8 mm | 4 fois plus petit, 5,3–36 V en entrée, protégé contre l'inversion de polarité |
-| Fusible dans le boîtier | Fusible **dans la rallonge**, côté prise du jet-ski | protège tout le câble et libère de la place |
-| Collerette de vis tout autour | 4 colonnes d'angle, à l'extérieur du joint | même étanchéité, encombrement réduit |
+Embase **Deutsch DT04-6P-L012** sur la grande paroi, collerette à plat sur un plot en relief. Il n'existe pas
+d'embase DT 6 voies plus petite : toutes les versions à collerette de TE (L012, LE14, CL06, CL09) ont une
+collerette d'environ 31–35,5 × 55 mm. La monter sur la grande paroi plutôt qu'en bout évite d'élargir le boîtier.
 
-Résultat : environ 175 × 54 × 37 mm fermé, contre 178 × 110 × 64 mm avant.
+- Découpe 25,40 × 25,40 mm R6,35 ; 4 trous à 45,01 × 24,00 mm (plan TE 0425-017-0000)
+- Fixation : 4 vis M4 dans des **inserts M4 noyés dans le plot** (trous borgnes) : rien ne dépasse à l'intérieur
+  et aucun trou ne traverse la paroi
+- Joint plat ou cordon de silicone sous la collerette (la L012 n'a pas de joint de collerette)
+- Se branche sur une fiche DT06-6S
 
-## Connecteur M12 : brochage CANopen standard
-
-| Broche M12 | Couleur câble CANopen | Signal |
-|---|---|---|
-| 1 | (blindage) | non raccordé, ou masse |
-| 2 | rouge | +12 V |
-| 3 | noir | masse |
-| 4 | blanc | CAN-H |
-| 5 | bleu | CAN-L |
-
-C'est le brochage normalisé CANopen/DeviceNet en M12 : un câble CANopen M12 du commerce coupé en deux sert
-directement de rallonge. Au bout côté jet-ski : fusible 1 A en ligne sur le fil rouge, puis la fiche Deutsch
-qui correspond à la prise diagnostic (genre et brochage à relever au multimètre, doc 02).
+| Broche embase | Signal |
+|---|---|
+| 1 | CAN-H |
+| 2 | CAN-L |
+| 3 | masse |
+| 4 | +12 V |
+| 5-6 | libres |
 
 ## À acheter en plus
 
-- 1 embase M12 femelle 5 broches codage A, montage arrière, filetage PG9, à souder (IP67)
-- 1 câble CANopen M12 mâle 5 broches (sert de rallonge) + fiche Deutsch côté jet-ski + porte-fusible 1 A
-- 4 inserts thermo M3 (longueur 5–6 mm) + 4 vis M3 × 8 tête cylindrique
+- Embase Deutsch DT04-6P-L012 + 4 contacts mâles taille 16 + cale W6P
+- 4 inserts thermo M4 (Ø5,6, longueur 6–7 mm) + 4 vis M4 × 10
+- Porte-fusible mini lame + fusible 1 A, en ligne sur le +12 V (dans la zone 20–48 mm)
+- 4 inserts thermo M3 (longueur 5–6 mm) + 4 vis M3 × 8 pour le couvercle
 - 0,5 m de cordon silicone Ø1,5 mm
 - Adhésif double face VHB pour le buck et le module CAN
 
@@ -63,14 +61,11 @@ qui correspond à la prise diagnostic (genre et brochage à relever au multimèt
 
 | Pièce | Cote utilisée | Source |
 |---|---|---|
-| Embase M12 PG9 | perçage Ø15,3 +0,1 mm, paroi 4 mm max (la nôtre : 3,6 mm) | fiche fabricant embase M12 arrière PG9 |
-| Brochage M12 CANopen | 2 V+, 3 V−, 4 CAN_H, 5 CAN_L | fiches Phoenix Contact / ESCHA |
+| Embase DT04-6P-L012 | collerette 54,99 × 35,51 × 3,71, découpe 25,40 R6,35, trous 45,01 × 24,00, corps 20,65 mm | plan TE 0425-017-0000 |
 | Pololu D24V22F5 | 0,7″ × 0,7″ × 0,31″, entrée 5,3–36 V, 2,2 A continu | pololu.com |
 | Carte LilyGO | 111 × 33 × 20 mm | manuel / fiche revendeur — à mesurer |
 
 ## À vérifier avant d'imprimer
 
 - **Cotes de la carte** : mesure ta carte. Si elle diffère, ajuste `BOARD_L` / `BOARD_W` / `BOARD_H`.
-- **Embase M12** : vérifie que celle que tu achètes est bien en PG9 (certaines sont en M16 : perçage 16,1 mm,
-  changer `M12_HOLE`).
 - **USB-C** : on flashe couvercle ouvert ; un câble USB-C coudé est plus pratique dans un boîtier de 36 mm de large.

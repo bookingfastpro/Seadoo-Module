@@ -6,25 +6,26 @@ Génère 2 STL (fond + couvercle) :  python3 boitier.py
 Dépendances :                      pip install manifold3d trimesh numpy
 
 Toutes les cotes sont en mm et réglables ci-dessous (section PARAMÈTRES).
-Repère : X = longueur intérieure (0 = paroi du connecteur M12),
+Repère : X = longueur intérieure (0 = paroi du buzzer), embase Deutsch sur la grande paroi Y=W,
          Y = largeur intérieure, Z = hauteur (0 = dessous du fond).
 
 Implantation intérieure (vue de dessus) :
-  X 0..24     zone A : arrière du connecteur M12 + fils
-  X 24..136   carte LilyGO T-SIM7600G-H (111 x 33 x 20 mm, accu 18650 dessous)
-  X 136..156  zone B : buck Pololu D24V22F5 (17,8 x 17,8) + module CAN, à plat,
-              buzzer Ø12 au-dessus, contre la paroi X=L
+  X 0..20     zone B : buck Pololu D24V22F5 (17,8 x 17,8) + module CAN, à plat,
+              buzzer Ø12 au-dessus, contre la paroi X=0
+  X 20..48    zone A : arrière de l'embase Deutsch DT04-6P-L012 (montée sur la grande paroi Y=W)
+  X 48..160   carte LilyGO T-SIM7600G-H (111 x 33 x 20 mm, accu 18650 dessous)
 """
 import numpy as np
 import trimesh
 from manifold3d import Manifold, CrossSection, JoinType
 
 # ---------------------------------------------------------------- PARAMÈTRES
-ZONE_A, ZONE_B = 24.0, 20.0
+ZONE_B, ZONE_A = 20.0, 28.0
 BOARD_L, BOARD_W, BOARD_H = 111.0, 33.0, 20.0
-L = ZONE_A + BOARD_L + 1.0 + ZONE_B      # 156 : longueur intérieure
+BOARD_X0 = ZONE_B + ZONE_A               # 48
+L = BOARD_X0 + BOARD_L + 1.0             # 160 : longueur intérieure
 W = BOARD_W + 3.0                         # 36  : largeur intérieure (1,5 mm de jeu de chaque côté)
-H = 28.0                                  # hauteur intérieure (carte 20 + antenne GPS collée sous le couvercle)
+H = 35.5                                  # hauteur intérieure : imposée par la collerette Deutsch (35,5 mm)
 WALL = 3.6
 FLOOR = 2.4
 R_IN = 4.0
@@ -41,13 +42,19 @@ COL_R = R_IN + WALL / 2 + GROOVE_W / 2 + 0.8 + COL_D / 2   # distance au centre 
 LID_T = 2.8
 LIP_T, LIP_H, LIP_GAP = 1.4, 3.0, 0.35
 
-# Connecteur M12 5 broches codage A, embase femelle à visser, filetage PG9 (Ø15,2)
-#   perçage PG9 : Ø15,3 +0,1 ; épaisseur de paroi max 4,0 mm (fiches fabricants)
-M12_HOLE = 15.4
-M12_FLAT = 22.0                # zone plane réservée autour (écrou SW17 + joint)
-M12_Y, M12_Z = W / 2, 15.0
+# Embase Deutsch DT04-6P-L012 (plan TE 0425-017-0000) sur la grande paroi Y=W, collerette à plat
+#   découpe 25,40 x 25,40 R6,35 ; 4 trous à 45,01 x 24,00 ; collerette 54,99 x 35,51 x 3,71
+#   corps derrière la collerette 20,65 mm ; se branche sur la fiche DT06-6S
+#   Fixation : vis M4 dans des inserts M4 noyés dans un plot en relief (rien ne dépasse à l'intérieur)
+DT_CUT, DT_CUT_R = 25.4, 6.35
+DT_HOLES_DX, DT_HOLES_DZ = 45.01, 24.00
+DT_FLANGE_W, DT_FLANGE_H = 54.99, 35.51
+DT_X = ZONE_B + ZONE_A / 2               # 34 : centre de l'embase le long de la paroi
+DT_Z = 19.8
+PAD_T = 4.5                              # épaisseur du plot sous la collerette
+M4_INSERT_D, M4_INSERT_L = 5.6, 7.5
 
-# Buzzer actif Ø12 sur la paroi X=L, membrane amincie devant, au-dessus du buck
+# Buzzer actif Ø12 sur la paroi X=0, membrane amincie devant, au-dessus du buck
 BUZ_D, BUZ_Y, BUZ_Z = 12.0, W / 2, FLOOR + 17.0
 BUZ_MEMBRANE = 1.0
 
@@ -55,7 +62,7 @@ BUZ_MEMBRANE = 1.0
 BOTTOM_CHAMFER = 1.6
 LID_EDGE_CHAMFER = 1.2
 PANEL_INSET, PANEL_H = 5.0, 1.0
-DECO_GROOVES_Z = [10.0, 14.5]
+DECO_GROOVES_Z = [12.0, 17.0]
 DECO_W, DECO_D = 1.2, 0.6
 
 SEG = 64
@@ -111,8 +118,14 @@ def make_base():
     body = Manifold.batch_hull([outline(0, 0.01, -c), outline(c, 0.01)]) + outline(c, zt - c)
     body -= ring(0, FLOOR, zt)                                   # creux intérieur
 
-    # lignes décoratives sur les grandes faces et la face X=L (pas sur la face du M12)
-    keep = box(L + 40, W + 40, 60).translate((-L / 2 + R_IN + 2, -(W + 40) / 2, 0))
+    # plot en relief sous la collerette Deutsch (grande paroi Y=W)
+    pad_h = DT_Z + DT_FLANGE_H / 2 + 0.3
+    pad = rrect(DT_FLANGE_W + 1.0, pad_h * 2, 2.0).extrude(WALL / 2 + PAD_T) \
+        .rotate((-90, 0, 0)).translate((DT_X - L / 2, W / 2 + WALL / 2, 0))
+    body += pad ^ box(L, 60, pad_h).translate((-L / 2, 0, 0))
+
+    # lignes décoratives : grande face Y=0 et petite face X=L, loin de l'embase
+    keep = box(L + 40, W + 40, 60).translate((-L / 2 + BOARD_X0 + 16, -(W + 40) / 2, 0))
     for zg in DECO_GROOVES_Z:
         band = (ring(WALL + 5, 0, DECO_W) - ring(WALL - DECO_D, 0, DECO_W)).translate((0, 0, zg - DECO_W / 2))
         body -= band ^ keep
@@ -125,21 +138,27 @@ def make_base():
     for (x, y) in column_points():
         body -= cyl(10, INSERT_D).translate((x, y, zt - 9.5))
 
-    # connecteur M12 (paroi X=0)
-    x, y, z = at(0, M12_Y, M12_Z)
-    body -= cyl(WALL * 4, M12_HOLE, center=True).rotate((0, 90, 0)).translate((x, y, z))
+    # embase Deutsch : découpe + inserts M4 (borgnes, depuis l'extérieur)
+    x, y, z = at(DT_X, W, DT_Z)
+    yo = W / 2 + WALL + PAD_T                             # face extérieure du plot
+    cut = rrect(DT_CUT, DT_CUT, DT_CUT_R).extrude(30).rotate((-90, 0, 0)).translate((x, W / 2 - 5, z))
+    body -= cut
+    for dx in (-DT_HOLES_DX / 2, DT_HOLES_DX / 2):
+        for dz in (-DT_HOLES_DZ / 2, DT_HOLES_DZ / 2):
+            body -= cyl(M4_INSERT_L + 1, M4_INSERT_D).rotate((90, 0, 0)).translate((x + dx, yo + 1, z + dz))
 
-    # buzzer : logement en porte-à-faux sur la paroi X=L + membrane amincie
-    x, y, z = at(L, BUZ_Y, BUZ_Z)
+    # buzzer : logement en porte-à-faux sur la paroi X=0 + membrane amincie
+    x, y, z = at(0, BUZ_Y, BUZ_Z)
     holder = (cyl(9, BUZ_D + 3.2) - cyl(10, BUZ_D + 0.4).translate((0, 0, -0.5))).rotate((0, 90, 0))
-    body += holder.translate((x - 9, y, z))
-    body -= cyl(WALL - BUZ_MEMBRANE + 0.01, BUZ_D - 2).rotate((0, 90, 0)).translate((x + BUZ_MEMBRANE, y, z))
+    body += holder.translate((x, y, z))
+    body -= cyl(WALL - BUZ_MEMBRANE + 0.01, BUZ_D - 2).rotate((0, 90, 0)).translate((x - WALL - 0.01, y, z))
 
     # butées de la carte (bouts) + nervures latérales basses
-    for rx in (ZONE_A - 2.0, ZONE_A + BOARD_L + 1.0):
+    ZONE_A_ = BOARD_X0
+    for rx in (ZONE_A_ - 2.0, ZONE_A_ + BOARD_L + 0.4):
         body += box(2.0, 8.0, 5.0).translate(at(rx, W / 2 - 4, FLOOR))
     for ry in (0.0, W - 1.2):
-        for x0 in (ZONE_A + 15, ZONE_A + BOARD_L - 25):
+        for x0 in (BOARD_X0 + 15, BOARD_X0 + BOARD_L - 25):
             body += box(10.0, 1.2, 8.0).translate(at(x0, ry, FLOOR))
     return body
 
@@ -174,9 +193,11 @@ def make_lid():
 
 def check():
     zt = FLOOR + H
-    assert M12_Y - M12_FLAT / 2 > R_IN and M12_Y + M12_FLAT / 2 < W - R_IN, "zone plane M12 hors du plat"
-    assert M12_Z - M12_FLAT / 2 > BOTTOM_CHAMFER and M12_Z + M12_FLAT / 2 < zt, "zone plane M12 trop haute/basse"
-    assert WALL <= 4.0, "paroi trop épaisse pour l'embase M12 (4 mm max)"
+    assert DT_Z - DT_FLANGE_H / 2 > BOTTOM_CHAMFER and DT_Z + DT_FLANGE_H / 2 < zt, "collerette DT hors de la hauteur"
+    assert DT_X - DT_FLANGE_W / 2 > R_IN, "collerette DT trop près de l'angle"
+    assert DT_X + DT_CUT / 2 + 1 < BOARD_X0, "le corps de l'embase touche la carte"
+    assert WALL + PAD_T <= 16.5, "paroi trop épaisse pour la DT (16,5 mm max)"
+    assert M4_INSERT_L < WALL + PAD_T - 0.4, "insert M4 débouchant"
     assert BUZ_Z - (BUZ_D + 3.2) / 2 > FLOOR + 8.5, "buzzer trop bas : touche le buck"
 
 
