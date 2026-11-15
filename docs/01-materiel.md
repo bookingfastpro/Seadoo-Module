@@ -10,13 +10,13 @@ doubler pour équiper les deux GTX.
 | Carte principale (ESP32 + LTE + GPS + lecteur SD) | **LilyGO T-SIM7600G-H** (version « G-H » = bandes mondiales) | 60–75 € |
 | Antennes LTE + GPS | fournies avec la carte en général ; sinon antennes adhésives u.FL | 0–10 € |
 | Transceiver CAN 3,3 V | module **SN65HVD230** (ou TJA1051T/3) | 3–5 € |
-| Convertisseur 12 V → 5 V | module buck 3 A étanche/encapsulé (entrée 8–32 V) | 6–10 € |
+| Convertisseur 12 V → 5 V | **Pololu D24V22F5** (17,8 × 17,8 mm, entrée 5,3–36 V, 2,2 A, protégé inversion) | 15–19 € |
 | Accu Li-ion 18650 | cellule de marque 3000–3500 mAh (Samsung, LG, Molicel…), pas de « 9900 mAh » sans marque | 6–10 € |
-| Porte-fusible en ligne + fusible 1 A | type automobile mini, côté boîtier | 4 € |
+| Porte-fusible en ligne + fusible 1 A | type automobile mini, dans la rallonge côté prise du jet-ski | 4 € |
 | Carte microSD | 8–32 Go, pour les relevés CAN | 6 € |
 | Carte SIM data M2M | 1NCE, Things Mobile, Emnify… | env. 10–15 € |
 | Boîtier étanche | imprimé 3D (`hardware/boitier/`) ou IP67 du commerce | 10–15 € |
-| Connecteur prise diagnostic | embase Deutsch DT04-6P-L012 sur le boîtier + rallonge DT06-6S ↔ prise du jet-ski (vérifier le genre) | 15–25 € |
+| Connecteur | embase **M12 femelle 5 broches codage A**, PG9, sur le boîtier + câble CANopen M12 mâle (rallonge) + fiche Deutsch côté jet-ski (vérifier le genre) | 15–25 € |
 | Vernis de tropicalisation | bombe pour circuits imprimés | 10 € (pour tous) |
 | Buzzer actif 5 V (alerte anti-collision) | « active buzzer 5V » (celui qui sonne seul sous tension) | 2 € |
 | Optionnel : GPS rapide 5-10 Hz | module u-blox **NEO-M9N** (meilleure anticipation de collision) | 15-25 € |
@@ -29,18 +29,18 @@ cosses pré-serties).
 ## Câblage
 
 ```
-Prise diag +12 V ──[fusible 1 A]── buck IN+        buck OUT+ (5 V) ── carte : connecteur SOLAIRE (+)
-Prise diag masse ────────────────── buck IN−        buck OUT− ──────── carte : connecteur SOLAIRE (−)
+M12 broche 2 (+12 V) ── buck VIN        buck VOUT (5 V) ── carte : connecteur SOLAIRE (+)
+M12 broche 3 (masse) ── buck GND        buck GND ───────── carte : connecteur SOLAIRE (−)
 
 Accu 18650 dans le support au dos de la carte, interrupteur de la carte sur ON.
 
-Embase DT04-6P du boîtier (brochage choisi par nous)
-   1  CAN-H   → transceiver CANH
-   2  CAN-L   → transceiver CANL
-   3  Masse   → masse commune (buck IN−, transceiver GND, carte GND)
-   4  +12 V   → fusible 1 A → buck IN+
-   5-6        libres
-La rallonge (DT06-6S côté boîtier) fait la correspondance avec la prise du jet-ski,
+Embase M12 du boîtier (brochage CANopen standard)
+   2  +12 V (rouge) → buck VIN      (le fusible 1 A est dans la rallonge, côté jet-ski)
+   3  masse (noir)  → masse commune (buck GND, transceiver GND, carte GND)
+   4  CAN-H (blanc) → transceiver CANH
+   5  CAN-L (bleu)  → transceiver CANL
+   1  blindage      → non raccordé
+La rallonge (câble CANopen M12) fait la correspondance avec la prise du jet-ski,
 dont le brochage reste à relever au multimètre (doc 02).
 
 Transceiver CAN          Carte LilyGO
@@ -75,8 +75,9 @@ Points importants :
   - jet-ski en marche : le buck charge l'accu par l'entrée solaire de la carte
     (4,4–6 V, c'est ce que conseille LilyGO pour une alimentation 5 V) ;
   - jet-ski coupé : l'accu prend le relais, le suivi continue.
-- **Fusible 1 A côté boîtier** : ce +12 V alimente aussi l'ECU. Un court-circuit
-  dans le boîtier doit faire sauter notre fusible, pas celui du jet-ski.
+- **Fusible 1 A dans la rallonge, au plus près de la prise du jet-ski** : ce +12 V
+  alimente aussi l'ECU. Un court-circuit dans le câble ou le boîtier doit faire
+  sauter notre fusible, pas celui du jet-ski.
 - Repérer au multimètre quelle broche porte le +12 V et la masse (doc 02) :
   le brochage des GTX 2023/2026 n'est pas confirmé.
 - Sur cette carte, le pont diviseur de mesure de l'accu est câblé sur GPIO 35,
