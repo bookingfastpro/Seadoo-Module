@@ -42,10 +42,6 @@ DT_HOLE_D, DT_HOLES_DX, DT_HOLES_DZ = 4.32, 45.01, 24.00
 DT_FLANGE_W, DT_FLANGE_H = 54.99, 35.51
 DT_Y, DT_Z = 50.0, 20.0       # centre de l'embase (Y le long de la paroi, Z hauteur)
 
-# Presse-étoupe PG7 de réserve (relais / servo) : filetage Ø12.5, perçage 12.5-12.7
-PG7_D = 12.7
-GLAND_X, GLAND_Z = 14.0, 30.0   # sur la grande paroi Y=W
-
 # Pattes de fixation coque (vis M5)
 EAR_LEN, EAR_W, EAR_T, EAR_SLOT = 30.0, 16.0, 5.0, 5.5
 EARS_X = [22.0, L - 22.0]
@@ -126,10 +122,6 @@ def make_base():
     for dy in (-DT_HOLES_DX / 2, DT_HOLES_DX / 2):
         for dz in (-DT_HOLES_DZ / 2, DT_HOLES_DZ / 2):
             body -= cyl(WALL * 4, DT_HOLE_D, center=True).rotate((0, 90, 0)).translate((x, y + dy, z + dz))
-
-    # presse-étoupe PG7 de réserve (grande paroi Y=W)
-    x, y, z = at(GLAND_X, W, GLAND_Z)
-    body -= cyl(WALL * 4, PG7_D, center=True).rotate((90, 0, 0)).translate((x, y, z))
 
     # buzzer : logement + membrane amincie (paroi X=L)
     x, y, z = at(L, BUZ_Y, BUZ_Z)

@@ -16,7 +16,6 @@ Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boiti
 | Carte LilyGO T-SIM7600G-H | berceau à rails pour 111 × 33 mm, maintenue par 2 colliers |
 | Convertisseur 12→5 V + module CAN | bande libre de 30 mm avec 4 passants de colliers |
 | Prise diag | embase Deutsch **DT04-6P-L012** en façade (petite paroi) : découpe 25,40 × 25,40 mm R6,35, 4 trous Ø4,32 à 45,01 × 24,00 mm — cotes du plan TE 0425-017-0000 |
-| Câble de réserve | 1 trou PG7 Ø12,7 sur une grande paroi (relais / servo) |
 | Buzzer actif Ø12 | logement sur la paroi opposée, paroi amincie à 1 mm devant (le son passe, l'eau non) |
 | Étanchéité | gorge pour cordon silicone Ø2 mm, vis placées à l'extérieur du joint |
 | Fixation couvercle | 6 inserts laiton M3 (trou Ø4) dans la collerette + vis M3 × 10 |
@@ -27,7 +26,6 @@ Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boiti
 - 1 embase Deutsch DT04-6P-L012 + 6 contacts mâles taille 16 + cale W6P
 - 4 vis M4 × 12 + écrous nylstop + rondelles (trous Ø4,32 prévus par TE)
 - 1 joint plat ou un cordon de mastic silicone sous la collerette : la L012 n'a pas de joint de collerette
-- 1 presse-étoupe PG7 (étanche, avec écrou)
 - 6 inserts thermo M3 (longueur 5–6 mm) + 6 vis M3 × 10 tête cylindrique
 - 0,6 m de cordon silicone Ø2 mm
 - Rallonge Deutsch : fiche DT06-6S côté boîtier, et à l'autre bout le genre inverse de la prise du jet-ski (à vérifier sur la machine)
@@ -55,5 +53,4 @@ Le modèle est paramétrique : il suffit de modifier les cotes en haut de `boiti
 | Embase DT04-6P-L012 | collerette 54,99 × 35,51 × 3,71 mm, profondeur derrière collerette 20,65 mm | plan TE 0425-017-0000, feuille 1 |
 | | découpe 25,40 × 25,40 R6,35, 4 × Ø4,32 à 45,01 × 24,00 | plan TE, feuille 2 (« recommended cutout ») |
 | | épaisseur de paroi max 16,5 mm (la nôtre : 3 mm) | spécification d'application TE 114-151009 |
-| Presse-étoupe PG7 | filetage Ø12,5, perçage 12,5–12,7 mm | fiches fabricants (VIOX, Phoenix Contact) |
 | Carte LilyGO | 111 × 33 mm | fiche revendeur (TinyTronics) — à mesurer |
