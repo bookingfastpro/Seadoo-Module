@@ -47,6 +47,15 @@
 //     sans modem. A utiliser en premier pour decoder le bus (docs/02-bus-can.md).
 // 0 = mode tracker normal.
 #define SNIFFER_MODE 1
+// Page web locale du sniffer : le boitier cree le reseau WiFi « NAUTIX-xxxx »,
+// on s'y connecte puis on ouvre http://192.168.4.1 (etat, carte SD, trames en direct).
+#define SNIFFER_WEB     1
+#define SNIFFER_AP_PASS "nautix123"            // 8 caracteres minimum
+// Test SANS jet-ski : le boitier s'envoie des trames factices (regime qui monte
+// et descend sur l'ID 0x102). Relier GPIO22 et GPIO21 par un fil (sans module CAN),
+// ou laisser le module CAN branche mais RIEN sur CANH/CANL.
+// /!\ Le boitier EMET dans ce mode : remettre a 0 avant de le brancher sur le jet.
+#define CAN_SELFTEST    0
 
 // ---------- Bus CAN ----------
 #define CAN_BITRATE_KBPS 500                   // essayer 250 si aucune trame en 500

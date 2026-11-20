@@ -28,6 +28,19 @@
 #include "collision.h"
 #include "throttle.h"
 
+#ifndef SNIFFER_WEB
+#define SNIFFER_WEB 1          // page web locale en mode sniffer (voir sniffer_web.h)
+#endif
+#if SNIFFER_MODE && SNIFFER_WEB
+#include "sniffer_web.h"
+#endif
+#ifndef CAN_SELFTEST
+#define CAN_SELFTEST 0
+#endif
+#if CAN_SELFTEST && !SNIFFER_MODE
+#error "CAN_SELFTEST ne s'utilise qu'en mode sniffer (SNIFFER_MODE 1)"
+#endif
+
 #if COLLISION_ENABLE
 #include <WiFi.h>
 #include <esp_now.h>
@@ -71,14 +84,18 @@ static uint32_t parkedIntervalS = PARKED_INTERVAL_S;
 static bool canStart() {
   // Ecoute seule par defaut (ne peut rien perturber). Mode normal uniquement si
   // le bridage par diagnostic est actif, car il faut alors emettre vers l'ECM.
-#if DIAG_LIMIT_ENABLE
+#if CAN_SELFTEST
+  // Test sans jet-ski : le boitier s'envoie ses propres trames (pas d'acquittement
+  // necessaire). Il EMET : a ne jamais utiliser branche sur le jet-ski.
+  twai_mode_t canMode = TWAI_MODE_NO_ACK;
+#elif DIAG_LIMIT_ENABLE
   twai_mode_t canMode = TWAI_MODE_NORMAL;
 #else
   twai_mode_t canMode = TWAI_MODE_LISTEN_ONLY;
 #endif
   twai_general_config_t g = TWAI_GENERAL_CONFIG_DEFAULT((gpio_num_t)CAN_TX_PIN, (gpio_num_t)CAN_RX_PIN,
                                                         canMode);
-  g.rx_queue_len = 128;
+  g.rx_queue_len = 512;   // marge pour ne rien perdre pendant une ecriture SD ou une requete web
 #if CAN_BITRATE_KBPS == 250
   twai_timing_config_t t = TWAI_TIMING_CONFIG_250KBITS();
 #elif CAN_BITRATE_KBPS == 1000
@@ -116,6 +133,9 @@ static int pollCan(File *log = nullptr) {
     lastCanMs = millis() | 1;
     if (m.rtr) continue;
     decodeFrame(m);
+#if SNIFFER_MODE && SNIFFER_WEB
+    snifweb::onFrame(m);
+#endif
     if (log) {
       char line[80];
       int len = snprintf(line, sizeof(line), "%lu,%lX,%d,%d", (unsigned long)millis(),
@@ -155,8 +175,8 @@ static bool engineRunning() {
 static void snifferLoop() {
   SPI.begin(SD_SCLK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
   File log;
+  char name[24] = "";
   if (SD.begin(SD_CS_PIN)) {
-    char name[24];
     for (int i = 0; i < 1000; i++) {
       snprintf(name, sizeof(name), "/can_%03d.csv", i);
       if (!SD.exists(name)) break;
@@ -168,15 +188,59 @@ static void snifferLoop() {
   }
   Serial.println("ms,id,ext,dlc,b0,b1,b2,b3,b4,b5,b6,b7");
   if (log) log.println("ms,id,ext,dlc,b0,b1,b2,b3,b4,b5,b6,b7");
+#if SNIFFER_WEB
+  snifweb::begin(&canFrameCount, (bool)log, name);
+#endif
 
   uint32_t lastFlush = 0, lastStatus = 0;
+#if CAN_SELFTEST
+  Serial.println("# !!! CAN_SELFTEST : le boitier EMET des trames de test. Ne pas brancher sur le jet-ski !");
+  uint32_t lastTx = 0;
+  uint16_t fakeRpm = 800;
+  int8_t rpmStep = 25;
+  uint8_t counter = 0;
+#endif
   for (;;) {
+#if CAN_SELFTEST
+    // Trames de test : 0x102 = "regime" (octets 2-3, gros-boutiste, x4) qui monte
+    // et descend entre 800 et 6000 tr/min + compteur ; 0x3A0 = valeurs fixes.
+    if (millis() - lastTx >= 50) {
+      lastTx = millis();
+      fakeRpm += rpmStep;
+      if (fakeRpm >= 6000 || fakeRpm <= 800) rpmStep = -rpmStep;
+      twai_message_t tx = {};
+      tx.self = 1;                       // se recevoir soi-meme
+      tx.identifier = 0x102;
+      tx.data_length_code = 8;
+      uint16_t raw = fakeRpm * 4;
+      tx.data[0] = 0x00; tx.data[1] = 0x10;
+      tx.data[2] = raw >> 8; tx.data[3] = raw & 0xFF;
+      tx.data[4] = 0x00; tx.data[5] = 0xC5;
+      tx.data[6] = counter++ & 0x0F;
+      tx.data[7] = tx.data[2] ^ tx.data[3] ^ tx.data[6];   // faux checksum
+      twai_transmit(&tx, 0);
+      if ((counter & 7) == 0) {
+        twai_message_t fixed = {};
+        fixed.self = 1;
+        fixed.identifier = 0x3A0;
+        fixed.data_length_code = 4;
+        fixed.data[0] = 0x5A; fixed.data[1] = 0x00; fixed.data[2] = 0x64; fixed.data[3] = 0x01;
+        twai_transmit(&fixed, 0);
+      }
+    }
+#endif
     pollCan(&log);
     uint32_t now = millis();
     if (log && now - lastFlush > 1000) {
       log.flush();
       lastFlush = now;
     }
+#if SNIFFER_WEB
+    static uint32_t lastWebStat = 0;
+    static twai_status_info_t webSt = {};
+    if (now - lastWebStat > 500) { twai_get_status_info(&webSt); lastWebStat = now; }
+    snifweb::loop(webSt.bus_error_count, webSt.rx_missed_count);
+#endif
     if (now - lastStatus > 5000) {
       lastStatus = now;
       twai_status_info_t st;
