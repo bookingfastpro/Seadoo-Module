@@ -33,6 +33,22 @@ static char sdFile[24] = "";
 static bool sdOk = false;
 static uint32_t busErrors = 0, rxMissed = 0;
 static char apName[24];
+// GPS : 0 = modem en demarrage, 1 = recherche des satellites, 2 = position trouvee, 3 = modem muet
+static int gpsState = 0;
+static float gpsLat = 0, gpsLon = 0, gpsSpeed = 0, gpsAlt = 0, gpsAcc = 0;
+static int gpsVsat = 0, gpsUsat = 0;
+static uint32_t gpsFixMs = 0;
+
+static void setGps(int state, bool fix, float lat, float lon, float speed, float alt, int vsat,
+                   int usat, float acc) {
+  gpsState = state;
+  gpsVsat = vsat;
+  gpsUsat = usat;
+  if (fix) {
+    gpsLat = lat; gpsLon = lon; gpsSpeed = speed; gpsAlt = alt; gpsAcc = acc;
+    gpsFixMs = millis() | 1;
+  }
+}
 static WebServer server(80);
 
 static const char PAGE[] PROGMEM = R"HTML(<!doctype html>
@@ -51,12 +67,14 @@ table{width:calc(100% - 32px);margin:0 16px 20px;border-collapse:collapse;font:1
 th,td{padding:5px 6px;text-align:left;border-bottom:1px solid #1d3d50}
 th{color:#8fb0c0;font-weight:600;position:sticky;top:0;background:#0b1720}
 td.b{width:2.2em;text-align:center;border-radius:4px}td.hot{background:#ffb02e;color:#000}
+.card span#gpsd{display:block;margin-top:4px}
 .note{padding:0 16px 16px;color:#8fb0c0;font-size:12px}
 </style></head><body>
 <header><h1>NAUTIX <small>by WinO</small></h1><span id="dev" style="color:#8fb0c0"></span></header>
 <div class="cards">
 <div class="card"><span>Boitier</span><b id="st" class="ok">connecte</b></div>
 <div class="card"><span>Allume depuis</span><b id="up">-</b></div>
+<div class="card"><span>GPS</span><b id="gps">-</b><span id="gpsd"></span></div>
 <div class="card"><span>Carte SD</span><b id="sd">-</b></div>
 <div class="card"><span>Trames CAN</span><b id="fr">-</b></div>
 <div class="card"><span>Trames / s</span><b id="fps">-</b></div>
@@ -78,6 +96,13 @@ async function tick(){
   document.getElementById('dev').textContent=d.dev+' - '+d.ap;
   document.getElementById('up').textContent=fmt(d.ms/1000);
   const sd=document.getElementById('sd');sd.textContent=d.sd?d.file:'absente';sd.className=d.sd?'ok':'warn';
+  const g=d.gps,ge=document.getElementById('gps'),gd=document.getElementById('gpsd');
+  if(g.st==0){ge.textContent='demarrage';ge.className='warn';gd.textContent='modem en cours de demarrage (~20 s)'}
+  else if(g.st==3){ge.textContent='modem muet';ge.className='ko';gd.textContent='le modem ne repond pas'}
+  else if(g.st==2){ge.textContent='position OK';ge.className='ok';
+   gd.textContent=g.lat.toFixed(6)+', '+g.lon.toFixed(6)+' - '+g.su+' satellites - '+g.spd.toFixed(1)+' km/h'}
+  else{ge.textContent='recherche';ge.className='warn';
+   gd.textContent=(g.sv?g.sv+' satellites visibles':'recherche en cours')+(g.age>=0?' (derniere position il y a '+Math.round(g.age)+' s)':'')+' - antenne GPS dehors ou pres d\'une fenetre'}
   document.getElementById('fr').textContent=d.frames;
   const now=performance.now();
   if(last!==null){document.getElementById('fps').textContent=Math.round((d.frames-last)*1000/(now-lastT))}
@@ -119,6 +144,23 @@ static void handleData() {
   s += busErrors;
   s += ",\"miss\":";
   s += rxMissed;
+  s += ",\"gps\":{\"st\":";
+  s += gpsState;
+  s += ",\"lat\":";
+  s += String(gpsLat, 6);
+  s += ",\"lon\":";
+  s += String(gpsLon, 6);
+  s += ",\"spd\":";
+  s += String(gpsSpeed, 1);
+  s += ",\"alt\":";
+  s += String(gpsAlt, 0);
+  s += ",\"sv\":";
+  s += gpsVsat;
+  s += ",\"su\":";
+  s += gpsUsat;
+  s += ",\"age\":";
+  s += gpsFixMs ? String((now - gpsFixMs) / 1000.0f, 0) : String(-1);
+  s += "}";
   s += ",\"ids\":[";
   for (int i = 0; i < idCount; i++) {
     const IdEntry &e = ids[i];

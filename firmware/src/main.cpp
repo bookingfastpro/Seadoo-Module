@@ -171,6 +171,8 @@ static bool engineRunning() {
   return canAlive();
 }
 
+static void modemPowerOn();   // definie plus bas (section Modem)
+
 // ---------- Mode sniffer ----------
 static void snifferLoop() {
   SPI.begin(SD_SCLK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
@@ -190,6 +192,13 @@ static void snifferLoop() {
   if (log) log.println("ms,id,ext,dlc,b0,b1,b2,b3,b4,b5,b6,b7");
 #if SNIFFER_WEB
   snifweb::begin(&canFrameCount, (bool)log, name);
+#endif
+#if SNIFFER_WEB
+  // GPS sur la page web : on allume le modem pour son recepteur GNSS seulement
+  // (pas de reseau cellulaire, pas besoin de carte SIM).
+  modemPowerOn();
+  uint32_t gpsT0 = millis(), lastGps = 0;
+  int gpsState = 0;
 #endif
 
   uint32_t lastFlush = 0, lastStatus = 0;
@@ -240,6 +249,25 @@ static void snifferLoop() {
     static twai_status_info_t webSt = {};
     if (now - lastWebStat > 500) { twai_get_status_info(&webSt); lastWebStat = now; }
     snifweb::loop(webSt.bus_error_count, webSt.rx_missed_count);
+    if (now - lastGps > 2000) {          // GPS : un test toutes les 2 s, sans bloquer le CAN
+      lastGps = now;
+      if (gpsState == 0 || gpsState == 3) {
+        if (modem.testAT(300)) {
+          modem.enableGPS();
+          gpsState = 1;
+          Serial.println("# GPS : modem pret, recherche des satellites");
+        } else if (now - gpsT0 > 45000) {
+          gpsState = 3;
+        }
+        snifweb::setGps(gpsState, false, 0, 0, 0, 0, 0, 0, 0);
+      } else {
+        float la = 0, lo = 0, sp = 0, al = 0, ac = 0;
+        int vs = 0, us = 0;
+        bool fix = modem.getGPS(&la, &lo, &sp, &al, &vs, &us, &ac);
+        gpsState = fix ? 2 : 1;
+        snifweb::setGps(gpsState, fix, la, lo, sp, al, vs, us, ac);
+      }
+    }
 #endif
     if (now - lastStatus > 5000) {
       lastStatus = now;
