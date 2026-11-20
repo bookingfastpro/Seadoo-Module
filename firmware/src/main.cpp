@@ -42,7 +42,11 @@ Preferences prefs;
 #if TRANSPORT_MQTT
 #include <PubSubClient.h>
 #if MQTT_USE_TLS
-TinyGsmClientSecure netClient(modem);   // TLS fait par le modem
+// TinyGSM ne gere pas le TLS du SIM7600 : le chiffrement est fait par l'ESP32
+// (mbedTLS, bibliotheque SSLClient) par-dessus une liaison TCP du modem.
+#include <SSLClient.h>
+TinyGsmClient gsmTcp(modem);
+SSLClient netClient(&gsmTcp);
 #else
 TinyGsmClient netClient(modem);
 #endif
@@ -304,6 +308,10 @@ static void buzzerUpdate(int level) {
 }
 
 // A appeler souvent quand le moteur tourne : diffuse, evalue, pilote le buzzer.
+#if COLLISION_LOG
+static void collisionLogTick();   // definie plus bas
+#endif
+
 static void collisionTick() {
   uint32_t now = millis();
   if (now - lastBeaconMs >= (uint32_t)(1000 / COLLISION_TX_HZ)) {
@@ -653,6 +661,13 @@ static bool mqttEnsure() {
   if (mqtt.connected()) return true;
   snprintf(telTopic, sizeof(telTopic), "seadoo/%s/telemetry", DEVICE_ID);
   snprintf(cmdTopic, sizeof(cmdTopic), "seadoo/%s/cmd", DEVICE_ID);
+#if MQTT_USE_TLS
+#ifdef MQTT_CA_CERT
+  netClient.setCACert(MQTT_CA_CERT);   // verifie le certificat du broker
+#else
+  netClient.setInsecure();             // chiffre sans verifier le certificat (a eviter en production)
+#endif
+#endif
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setBufferSize(1024);
   mqtt.setKeepAlive(30);
