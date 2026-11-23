@@ -48,8 +48,12 @@ collerette d'environ 31–35,5 × 55 mm. La monter sur la grande paroi plutôt q
 | 1 | CAN-H |
 | 2 | CAN-L |
 | 3 | masse |
-| 4 | +12 V |
-| 5-6 | libres |
+| 4 | libre (K-Line ou « alimentation ECU » selon les modèles BRP) |
+| 5 | +12 V (probable, à confirmer au multimètre sur le jet) |
+| 6 | libre |
+
+Le câble Y recopie les 6 broches du jet à l'identique : l'embase suit donc le
+brochage de la prise diagnostic BRP (voir `docs/02-bus-can.md`).
 
 ## À acheter en plus
 

@@ -9,8 +9,21 @@ notamment si le tableau de bord a changé).
 La prise diagnostic est un connecteur Deutsch 6 voies, en général près du
 boîtier à fusibles / de l'ECM (voir le manuel d'atelier du modèle).
 
-Les brochages qui circulent sur les forums **se contredisent**. Ne pas s'y
-fier : mesurer.
+Brochage relevé sur d'autres véhicules BRP utilisant la même prise 6 voies
+(aucun document BRP public pour les Sea-Doo) :
+
+| Broche | Can-Am Renegade (pinouts.ru) | Ski-Doo REV XP (Dootalk) | Can-Am Spyder (Sparx) | Probable sur Sea-Doo |
+|---|---|---|---|---|
+| 1 | CAN High | CAN Hi | CAN High | **CAN-H** (fil BLANC/BEIGE) |
+| 2 | CAN Low | CAN Lo | CAN Low | **CAN-L** (fil BLANC/NOIR) |
+| 3 | GND | masse | masse | **masse** |
+| 4 | K-Line | « power in » de l'ECU (rouge/bleu) | – | ne pas utiliser |
+| 5 | +12 V | alimentation accessoires (rouge/orange) | – | **+12 V** à confirmer |
+| 6 | – | – | – | libre |
+
+Les couleurs BLANC/NOIR et BLANC/BEIGE de la paire CAN sont celles du manuel
+d'atelier Sea-Doo GTX 2022 ; le manuel ne donne pas le numéro des broches.
+**Vérifier au multimètre avant de brancher le boîtier**, surtout la broche du 12 V.
 
 | Mesure au multimètre | Résultat attendu |
 |---|---|

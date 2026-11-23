@@ -29,18 +29,19 @@ cosses pré-serties).
 ## Câblage
 
 ```
-Embase 4 (+12 V) ──[fusible 1 A]── buck VIN     buck VOUT (5 V) ── carte : connecteur SOLAIRE (+)
+Embase 5 (+12 V) ──[fusible 1 A]── buck VIN     buck VOUT (5 V) ── carte : connecteur SOLAIRE (+)
 Embase 3 (masse) ───────────────── buck GND     buck GND ───────── carte : connecteur SOLAIRE (−)
 
 Accu 18650 dans le support au dos de la carte, interrupteur de la carte sur ON.
 
-Embase DT04-6P du boîtier (brochage choisi par nous)
+Embase DT04-6P du boîtier (même brochage que la prise diagnostic BRP, le câble Y
+recopie les 6 broches à l'identique)
    1  CAN-H   → transceiver CANH
    2  CAN-L   → transceiver CANL
    3  Masse   → masse commune (buck GND, transceiver GND, carte GND)
-   4  +12 V   → fusible 1 A → buck VIN
-   5-6        libres
-Brochage de la prise du jet-ski à relever au multimètre (doc 02).
+   4          libre (K-Line ou entrée « alimentation ECU » selon les modèles : NE PAS y prendre le 12 V)
+   5  +12 V   → fusible 1 A → buck VIN   (probable : à confirmer au multimètre, doc 02)
+   6          libre
 
 Transceiver CAN          Carte LilyGO
    3V3  ───────────────── 3V3
